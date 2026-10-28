@@ -1,0 +1,48 @@
+
+.topbar {
+  min-height: 92px;
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  border-bottom: 1px solid #e8ebe6;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #7a8279;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+}
+
+h1 {
+  margin: 0;
+  color: #202820;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #626b61;
+  font-size: 13px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5b9b70;
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px 16px;
+  }
+}

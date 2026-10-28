@@ -1,0 +1,107 @@
+<main class="overview">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">WORKSPACE OVERVIEW</p>
+      <h1>Good to see you <span>✳</span></h1>
+      <p class="subtitle">
+        Your AI workspace, all in one place. Here's what's happening today.
+      </p>
+    </div>
+
+    <button class="primary-button" type="button">
+      <span>＋</span> Create workflow
+    </button>
+  </header>
+
+  <section class="stats-grid" aria-label="Workspace statistics">
+    @for (stat of stats; track stat.label) {
+      <article class="stat-card">
+        <div class="stat-top">
+          <span class="stat-label">{{ stat.label }}</span>
+          <span class="stat-icon">{{ stat.icon }}</span>
+        </div>
+        <strong class="stat-value">{{ stat.value }}</strong>
+        <span class="stat-note">{{ stat.note }}</span>
+      </article>
+    }
+  </section>
+
+  <section class="content-grid">
+    <article class="panel agents-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Your agents</h2>
+          <p>Specialized assistants for your workflow.</p>
+        </div>
+        <a routerLink="/agents">View all ↗</a>
+      </div>
+
+      <div class="agent-list">
+        @for (agent of agents; track agent.name) {
+          <div class="agent-row">
+            <div class="agent-avatar" [class]="agent.color">
+              {{ agent.initials }}
+            </div>
+            <div class="agent-info">
+              <strong>{{ agent.name }}</strong>
+              <span>{{ agent.role }}</span>
+            </div>
+            <span class="agent-status" [class.draft]="agent.status === 'Draft'">
+              <span></span>{{ agent.status }}
+            </span>
+          </div>
+        }
+      </div>
+
+      <a class="add-agent" routerLink="/agents">＋ Create a new agent</a>
+    </article>
+
+    <article class="panel activity-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Getting started</h2>
+          <p>Set up your automation workspace.</p>
+        </div>
+      </div>
+
+      <div class="setup-list">
+        <div class="setup-item">
+          <span class="setup-number complete">✓</span>
+          <div>
+            <strong>Dashboard created</strong>
+            <p>Your workspace is ready to configure.</p>
+          </div>
+        </div>
+
+        <div class="setup-item">
+          <span class="setup-number">2</span>
+          <div>
+            <strong>Connect an AI model</strong>
+            <p>Configure OpenAI to power your agents.</p>
+          </div>
+        </div>
+
+        <div class="setup-item">
+          <span class="setup-number">3</span>
+          <div>
+            <strong>Connect Figma</strong>
+            <p>Give your design agent access to a frame.</p>
+          </div>
+        </div>
+
+        <div class="setup-item">
+          <span class="setup-number">4</span>
+          <div>
+            <strong>Run your first workflow</strong>
+            <p>Turn a design into a SwiftUI prototype.</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <footer class="page-footer">
+    <span><span class="footer-dot"></span> Local workspace</span>
+    <span>AI Automation Studio <span class="footer-separator">·</span> Prototype</span>
+  </footer>
+</main>

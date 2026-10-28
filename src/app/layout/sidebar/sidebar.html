@@ -1,0 +1,59 @@
+<aside class="sidebar">
+  <a class="brand" routerLink="/overview">
+    <span class="brand-icon">✳</span>
+    <span class="brand-copy">
+      <strong>Flowcraft</strong>
+      <small>AI Automation Studio</small>
+    </span>
+  </a>
+
+  <div class="workspace">
+    <span class="workspace-avatar">W</span>
+    <span class="workspace-copy">
+      <strong>My workspace</strong>
+      <small>Personal workspace</small>
+    </span>
+    <span class="workspace-menu">⌄</span>
+  </div>
+
+  <p class="nav-label">WORKSPACE</p>
+
+  <nav class="navigation">
+    @for (item of navigation; track item.route) {
+      <a
+        class="nav-item"
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        <span class="nav-icon">{{ item.icon }}</span>
+        <span>{{ item.label }}</span>
+        @if (item.label === 'Approvals') {
+          <span class="nav-count">1</span>
+        }
+      </a>
+    }
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="status">
+      <span class="status-dot"></span>
+      <span>Local environment</span>
+      <span class="status-label">Ready</span>
+    </div>
+
+    <a class="nav-item settings-link" routerLink="/settings">
+      <span class="nav-icon">⚙</span>
+      <span>Settings</span>
+    </a>
+
+    <div class="user-profile">
+      <div class="user-avatar">Y</div>
+      <div class="user-copy">
+        <strong>Your workspace</strong>
+        <small>Local developer</small>
+      </div>
+      <span class="profile-menu">···</span>
+    </div>
+  </div>
+</aside>
