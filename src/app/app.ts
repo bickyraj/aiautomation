@@ -1,13 +1,17 @@
 
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { Sidebar } from './layout/sidebar/sidebar';
 import { Topbar } from './layout/topbar/topbar';
+import {Hero} from './pages/hero/hero';
+import {About} from './pages/about/about';
+import {Ingredients} from './pages/ingredients/ingredients';
+import {ChipShowcase} from './pages/chip-showcase/chip-showcase';
+import {SmoothieShowcase} from './pages/smoothie-showcase/smoothie-showcase';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, Sidebar, Topbar],
+  imports: [RouterOutlet, Topbar, Hero, About, Ingredients, ChipShowcase, SmoothieShowcase],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
