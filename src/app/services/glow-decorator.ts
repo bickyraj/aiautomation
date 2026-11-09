@@ -33,15 +33,20 @@ export class GlowDecorator {
     // Reuse the particle geometry.
     const geometry = particles.geometry;
 
+    // Create a soft radial gradient texture.
+    const texture = this.createGlowTexture();
+
     // Create a separate material for the glow.
     const material = new THREE.PointsMaterial({
       color: options.color,
       size: options.size,
+      map: texture,
       transparent: true,
       opacity: THREE.MathUtils.clamp(options.opacity, 0, 1),
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false,
-      sizeAttenuation: true
+      sizeAttenuation: true,
+      alphaTest: 0.001
     });
 
     // Create the glow layer using the same positions.
@@ -114,7 +119,8 @@ export class GlowDecorator {
     layer.source.remove(layer.glow);
 
     // The geometry belongs to ParticleEngine.
-    // Only dispose the material created here.
+    // Dispose only resources created by this decorator.
+    layer.material.map?.dispose();
     layer.material.dispose();
 
     this.layers.delete(id);
@@ -129,6 +135,50 @@ export class GlowDecorator {
     for (const id of this.layers.keys()) {
       this.remove(id);
     }
+  }
+
+  // --------------------------------------------------
+  // CREATE RADIAL GLOW TEXTURE
+  // --------------------------------------------------
+
+  private createGlowTexture(): THREE.CanvasTexture {
+
+    const size = 128;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      throw new Error('Could not create glow texture.');
+    }
+
+    const center = size / 2;
+
+    const gradient = context.createRadialGradient(
+      center,
+      center,
+      0,
+      center,
+      center,
+      center
+    );
+
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.15, 'rgba(255,255,255,0.85)');
+    gradient.addColorStop(0.4, 'rgba(255,255,255,0.3)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+
+    const texture = new THREE.CanvasTexture(canvas);
+
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    return texture;
   }
 
   // --------------------------------------------------

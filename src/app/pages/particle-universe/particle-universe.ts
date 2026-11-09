@@ -55,6 +55,18 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private wolfId = '';
 
   // ==========================================
+  // GLOW DECORATOR
+  // ==========================================
+
+  private readonly glowDecorator = new GlowDecorator();
+
+  private universeGlowId?: string;
+  private wolfGlowId?: string;
+
+  private readonly universeGlowOpacity = 0.4;
+  private readonly wolfGlowOpacity = 0.5;
+
+  // ==========================================
   // PARTICLE DATA
   // ==========================================
 
@@ -110,7 +122,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   private readonly wolfUrl =
     '/assets/particles/wolf_particles.json';
-
 
   // ==========================================
   // INITIALIZE
@@ -182,9 +193,19 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         opacity: 1
       });
 
-      // Let the engine create the Three.js particles.
+      // Create universe particles.
       this.universeId = this.particleEngine.createParticles(
         universeModel
+      );
+
+      // Add golden glow.
+      this.universeGlowId = this.glowDecorator.decorate(
+        this.particleEngine.getParticleObject(this.universeId),
+        {
+          color: 0xffc400,
+          size: 0.5,
+          opacity: this.universeGlowOpacity
+        }
       );
 
       console.log(
@@ -272,8 +293,19 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         opacity: 1
       });
 
+      // Create wolf particles.
       this.wolfId = this.particleEngine.createParticles(
         wolfModel
+      );
+
+      // Add independent icy-blue glow.
+      this.wolfGlowId = this.glowDecorator.decorate(
+        this.particleEngine.getParticleObject(this.wolfId),
+        {
+          color: 0x006dff, // Electric neon blue
+          size: 0.55,
+          opacity: 0.55
+        }
       );
 
       // Start with wolf particles invisible.
@@ -514,7 +546,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.animatedPositions
     );
 
-    // Crossfade golden universe into icy wolf.
+    // Calculate crossfade.
     const wolfVisibility = THREE.MathUtils.smoothstep(
       progress,
       0.55,
@@ -523,6 +555,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     const universeVisibility = 1 - wolfVisibility;
 
+    // Control original particle visibility.
     this.particleEngine.setVisibility(
       this.universeId,
       universeVisibility
@@ -532,6 +565,22 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfId,
       wolfVisibility
     );
+
+    // Independently control universe glow.
+    if (this.universeGlowId) {
+      this.glowDecorator.setOpacity(
+        this.universeGlowId,
+        this.universeGlowOpacity * universeVisibility
+      );
+    }
+
+    // Independently control wolf glow.
+    if (this.wolfGlowId) {
+      this.glowDecorator.setOpacity(
+        this.wolfGlowId,
+        this.wolfGlowOpacity * wolfVisibility
+      );
+    }
   }
 
   // ==========================================
@@ -589,7 +638,10 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.morphTween?.scrollTrigger?.kill();
     this.morphTween?.kill();
 
-    // Engine owns and disposes all Three.js resources.
+    // Dispose glow layers before disposing particle systems.
+    this.glowDecorator.dispose();
+
+    // Engine owns and disposes particle resources.
     this.particleEngine.dispose();
   }
 }
