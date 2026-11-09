@@ -50,23 +50,26 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private matchedWolfFrames: Float32Array[] = [];
 
   private morphProgress = 0;
-  private readonly universeScale = 1.4;
-  private readonly wolfScale = 4;
+  private readonly universeScale = 1.5;
+  private readonly wolfScale = 5;
   private morphTween?: gsap.core.Timeline;
 
   private wolfFrameProgress = 0;
   private readonly wolfFramesPerSecond = 12;
 
+  private universeRotation = 0;
+  private readonly universeRotationSpeed = 0.15;
+
   private animationId = 0;
   private clock = new THREE.Clock();
+
+  private wolfGlowTexture?: THREE.Texture;
 
   private readonly sphereUrl =
     '/assets/particles/particles.json';
 
   private readonly wolfUrl =
     '/assets/particles/wolf_particles.json';
-
-  private readonly universeRotationSpeed = 0.15;
 
   async ngAfterViewInit(): Promise<void> {
 
@@ -113,7 +116,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(10, -1, 0);
-    this.camera.lookAt(0, -3, 2);
+    this.camera.lookAt(0, -3, 1.7);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -304,7 +307,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       size: 0.19,
       map: this.glowTexture,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.65,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       sizeAttenuation: true
@@ -331,13 +334,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       coreMaterial
     );
 
-    // Enlarge both particle layers equally.
-    // this.glowParticles.scale.setScalar(this.particleScale);
-    // this.coreParticles.scale.setScalar(this.particleScale);
-
-    // Scale the universe sphere.
-    this.glowParticles.scale.setScalar(this.universeScale);
-    this.coreParticles.scale.setScalar(this.universeScale);
+    // Scale is handled directly in updateMorph().
+    // Do not scale either Points object here.
 
     this.scene.add(this.glowParticles);
     this.scene.add(this.coreParticles);
@@ -410,9 +408,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     timeline
       .to({}, { duration: 1 })
       .to(this, {
-        morphProgress: 4,
+        morphProgress: 1,
         duration: 10,
-        ease: 'easeInOut',
+        ease: 'power1.inOut'
       });
 
     this.morphTween = timeline;
@@ -503,15 +501,47 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       1
     );
 
-    for (let i = 0; i < this.animatedPositions.length; i++) {
+    // Calculate current sphere rotation.
+    const cos = Math.cos(this.universeRotation);
+    const sin = Math.sin(this.universeRotation);
 
-      // Enlarge the wolf coordinates without changing the sphere.
-      const enlargedWolfPosition =
-        wolfFrame[i] * this.wolfScale;
+    for (let i = 0; i < this.animatedPositions.length; i += 3) {
 
+      // Original sphere coordinates.
+      const x = this.originalPositions[i];
+      const y = this.originalPositions[i + 1];
+      const z = this.originalPositions[i + 2];
+
+      // Rotate sphere around the Z axis.
+      const rotatedX = x * cos - y * sin;
+      const rotatedY = x * sin + y * cos;
+
+      // Apply universe scale.
+      const sphereX = rotatedX * this.universeScale;
+      const sphereY = rotatedY * this.universeScale;
+      const sphereZ = z * this.universeScale;
+
+      // Apply wolf scale in its original Blender orientation.
+      const wolfX = wolfFrame[i] * this.wolfScale;
+      const wolfY = wolfFrame[i + 1] * this.wolfScale;
+      const wolfZ = wolfFrame[i + 2] * this.wolfScale;
+
+      // Morph from sphere coordinates into wolf coordinates.
       this.animatedPositions[i] = THREE.MathUtils.lerp(
-        this.originalPositions[i],
-        enlargedWolfPosition,
+        sphereX,
+        wolfX,
+        progress
+      );
+
+      this.animatedPositions[i + 1] = THREE.MathUtils.lerp(
+        sphereY,
+        wolfY,
+        progress
+      );
+
+      this.animatedPositions[i + 2] = THREE.MathUtils.lerp(
+        sphereZ,
+        wolfZ,
         progress
       );
     }
@@ -535,6 +565,12 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.animationId = requestAnimationFrame(this.animate);
 
     const delta = Math.min(this.clock.getDelta(), 0.05);
+
+    // Rotate the universe while the morph is incomplete.
+    if (this.morphProgress < 1) {
+      this.universeRotation +=
+        this.universeRotationSpeed * delta;
+    }
 
     this.updateWolfAnimation(delta);
 
