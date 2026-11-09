@@ -188,9 +188,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       // Create the universe particle model.
       const universeModel = new ParticleModel({
         positions: this.animatedPositions,
-        color: 0xffffdc,
-        particleSize: 0.065,
-        opacity: 1
+        color: 0xffffff,
+        particleSize: 0.06,
+        opacity: 0.8
       });
 
       // Create universe particles.
@@ -288,7 +288,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       // Create the wolf particle model.
       const wolfModel = new ParticleModel({
         positions: new Float32Array(this.originalPositions.length),
-        color: 0xe6faff,
+        color: 0x00A3FF,
         particleSize: 0.065,
         opacity: 1
       });
@@ -302,9 +302,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfGlowId = this.glowDecorator.decorate(
         this.particleEngine.getParticleObject(this.wolfId),
         {
-          color: 0x0047FF, // Electric neon blue
-          size: 0.6,
-          opacity: 0.5
+          color: 0x00A3FF, // Electric neon blue
+          size: 0.25,
+          opacity: 0.1
         }
       );
 
