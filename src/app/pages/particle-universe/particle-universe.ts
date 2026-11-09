@@ -302,9 +302,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfGlowId = this.glowDecorator.decorate(
         this.particleEngine.getParticleObject(this.wolfId),
         {
-          color: 0x006dff, // Electric neon blue
-          size: 0.55,
-          opacity: 0.55
+          color: 0x0047FF, // Electric neon blue
+          size: 0.6,
+          opacity: 0.5
         }
       );
 
