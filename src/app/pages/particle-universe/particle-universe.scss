@@ -1,26 +1,62 @@
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #100d18;
+}
+
+.particle-experience {
+  position: relative;
+  width: 100%;
+  background: #100d18;
+  overflow: hidden;
+}
+
 .particle-universe-section {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 600px;
   overflow: hidden;
+
   display: flex;
   align-items: center;
+
+  color: #ffffff;
   background: #100d18;
-  color: #fff;
+}
+
+.particle-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.particle-canvas {
+  width: 100%;
+  height: 100%;
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .particle-content {
   position: relative;
   z-index: 2;
+
   width: 45%;
   padding-left: 8%;
+
   pointer-events: none;
 
   .eyebrow {
-    color: #f5c542;
+    color: #63d9ff;
     font-size: 0.85rem;
-    letter-spacing: 0.25em;
     font-weight: 600;
+    letter-spacing: 0.25em;
     margin-bottom: 24px;
   }
 
@@ -28,7 +64,7 @@
     font-size: clamp(3rem, 6vw, 6rem);
     line-height: 0.95;
     font-weight: 800;
-    margin-bottom: 28px;
+    margin: 0 0 28px;
   }
 
   .description {
@@ -36,19 +72,40 @@
     color: #c9c4d2;
     font-size: 1.05rem;
     line-height: 1.8;
+    margin: 0;
   }
 }
 
-.particle-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
+/* Tablet */
+@media (max-width: 900px) {
+  .particle-content {
+    width: 60%;
+    padding-left: 6%;
 
-  canvas {
-    display: block;
+    h2 {
+      font-size: clamp(2.8rem, 8vw, 5rem);
+    }
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .particle-universe-section {
+    min-height: 550px;
+    align-items: flex-start;
+  }
+
+  .particle-content {
     width: 100%;
-    height: 100%;
+    padding: 12vh 7% 0;
+
+    h2 {
+      font-size: clamp(2.6rem, 11vw, 4rem);
+    }
+
+    .description {
+      max-width: 310px;
+      font-size: 0.95rem;
+    }
   }
 }

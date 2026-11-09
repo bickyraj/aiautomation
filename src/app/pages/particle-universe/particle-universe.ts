@@ -8,6 +8,20 @@ import {
 } from '@angular/core';
 
 import * as THREE from 'three';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+interface WolfFrame {
+  frame: number;
+  positions: number[];
+}
+
+interface WolfParticleData {
+  particleCount: number;
+  startFrame: number;
+  endFrame: number;
+  frames: WolfFrame[];
+}
 
 @Component({
   selector: 'app-particle-universe',
@@ -25,84 +39,68 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
 
-  // ==========================================
-  // SPHERE PARTICLES
-  // ==========================================
-
-  private particles?: THREE.Points;
   private glowParticles?: THREE.Points;
-
-  private originalPositions?: Float32Array;
-  private particleVelocities?: Float32Array;
-
+  private coreParticles?: THREE.Points;
   private glowTexture?: THREE.Texture;
 
-  // ==========================================
-  // WOLF PARTICLES
-  // ==========================================
-
-  private wolfParticles?: THREE.Points;
-  private wolfGlowParticles?: THREE.Points;
+  private originalPositions?: Float32Array;
+  private animatedPositions?: Float32Array;
 
   private wolfFrames: Float32Array[] = [];
+  private matchedWolfFrames: Float32Array[] = [];
 
-  private wolfFrameIndex = 0;
-  private wolfFrameDuration = 1 / 12;
-  private wolfLastFrameTime = 0;
+  private morphProgress = 0;
+  private readonly universeScale = 1.4;
+  private readonly wolfScale = 4;
+  private morphTween?: gsap.core.Timeline;
 
-  private wolfAnimationPlaying = true;
-  private wolfGlowTexture?: THREE.Texture;
-
-  // ==========================================
-  // ANIMATION
-  // ==========================================
+  private wolfFrameProgress = 0;
+  private readonly wolfFramesPerSecond = 12;
 
   private animationId = 0;
+  private clock = new THREE.Clock();
 
-  // ==========================================
-  // MOUSE INTERACTION
-  // ==========================================
+  private readonly sphereUrl =
+    '/assets/particles/particles.json';
 
-  private mouse = new THREE.Vector2();
-  private raycaster = new THREE.Raycaster();
+  private readonly wolfUrl =
+    '/assets/particles/wolf_particles.json';
 
-  private mousePlane = new THREE.Plane(
-    new THREE.Vector3(0, 0, 1),
-    0
-  );
+  private readonly universeRotationSpeed = 0.15;
 
-  private mouseWorld = new THREE.Vector3();
-  private localMouse = new THREE.Vector3();
+  async ngAfterViewInit(): Promise<void> {
 
-  private mouseActive = false;
+    gsap.registerPlugin(ScrollTrigger);
 
-  // Sphere interaction settings
-  private interactionRadius = 1.2;
-  private interactionStrength = 1.0;
-  private returnSpeed = 0.12;
-
-  private springStrength = 0.012;
-  private damping = 0.90;
-
-  // ==========================================
-  // INITIALIZATION
-  // ==========================================
-
-  ngAfterViewInit(): void {
     this.initScene();
 
-    this.loadParticles();
-    this.loadWolfParticles();
+    const sphereLoaded = await this.loadSphereParticles();
+
+    if (!sphereLoaded) {
+      return;
+    }
+
+    const wolfLoaded = await this.loadWolfParticles();
+
+    if (!wolfLoaded) {
+      return;
+    }
+
+    this.setupScrollAnimation();
 
     this.animate();
   }
+
+  // ==========================================
+  // THREE.JS SCENE
+  // ==========================================
 
   private initScene(): void {
 
     const container = this.canvasContainer.nativeElement;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
 
     this.scene = new THREE.Scene();
 
@@ -113,10 +111,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       100
     );
 
-    // Front view of the wolf
     this.camera.up.set(0, 0, 1);
-    this.camera.position.set(10, 0, 0);
-    this.camera.lookAt(0, -2.5, 0);
+    this.camera.position.set(10, -1, 0);
+    this.camera.lookAt(0, -3, 2);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -133,58 +130,21 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     container.appendChild(this.renderer.domElement);
 
-    this.renderer.domElement.addEventListener(
-      'pointermove',
-      this.onMouseMove
-    );
-
-    this.renderer.domElement.addEventListener(
-      'pointerleave',
-      this.onMouseLeave
-    );
+    window.addEventListener('resize', this.onResize);
   }
 
   // ==========================================
-  // MOUSE MOVEMENT
+  // LOAD SPHERE
   // ==========================================
 
-  private onMouseMove = (event: PointerEvent): void => {
-
-    const rect = this.renderer.domElement.getBoundingClientRect();
-
-    this.mouse.x =
-      ((event.clientX - rect.left) / rect.width) * 2 - 1;
-
-    this.mouse.y =
-      -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-
-    this.mouseActive =
-      this.raycaster.ray.intersectPlane(
-        this.mousePlane,
-        this.mouseWorld
-      ) !== null;
-  };
-
-  private onMouseLeave = (): void => {
-    this.mouseActive = false;
-  };
-
-  // ==========================================
-  // LOAD GOLDEN PARTICLE SPHERE
-  // ==========================================
-
-  private async loadParticles(): Promise<void> {
+  private async loadSphereParticles(): Promise<boolean> {
 
     try {
 
-      const response = await fetch(
-        '/assets/particles/particles.json'
-      );
+      const response = await fetch(this.sphereUrl);
 
       if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
+        throw new Error(`Sphere file returned ${response.status}`);
       }
 
       const positions: number[] = await response.json();
@@ -195,420 +155,196 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         positions.length % 3 !== 0 ||
         !positions.every(Number.isFinite)
       ) {
-        throw new Error('Invalid particle position array.');
+        throw new Error('Invalid sphere particle positions.');
       }
 
       this.originalPositions = new Float32Array(positions);
 
-      this.particleVelocities = new Float32Array(
-        positions.length
-      );
+      this.animatedPositions = new Float32Array(positions);
 
-      const geometry = new THREE.BufferGeometry();
-
-      geometry.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(positions, 3)
-      );
-
-      // Golden glow texture
-      this.glowTexture = this.createGlowTexture();
-
-      // Outer golden glow
-      const glowMaterial = new THREE.PointsMaterial({
-        color: 0xffb52e,
-        size: 0.32,
-        map: this.glowTexture,
-        transparent: true,
-        opacity: 0.85,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true
-      });
-
-      this.glowParticles = new THREE.Points(
-        geometry,
-        glowMaterial
-      );
-
-      this.scene.add(this.glowParticles);
-
-      // Bright particle cores
-      const coreMaterial = new THREE.PointsMaterial({
-        color: 0xffffc2,
-        size: 0.055,
-        map: this.glowTexture,
-        transparent: true,
-        opacity: 1,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true
-      });
-
-      this.particles = new THREE.Points(
-        geometry,
-        coreMaterial
-      );
-
-      this.scene.add(this.particles);
-
-      // Wolf is the focus during this first test.
-      // Hide the sphere without removing its data.
-      this.particles.visible = false;
-      this.glowParticles.visible = false;
+      this.createParticleSphere();
 
       console.log(
-        'Golden sphere particles loaded:',
-        positions.length / 3
+        'Sphere loaded:',
+        positions.length / 3,
+        'particles'
       );
+
+      return true;
 
     } catch (error) {
 
-      console.error(
-        'Sphere particle loading failed:',
-        error
-      );
+      console.error('Could not load sphere particles:', error);
 
+      return false;
     }
   }
 
   // ==========================================
-  // LOAD ANIMATED WOLF PARTICLES
+  // LOAD WOLF ANIMATION
   // ==========================================
 
-  private async loadWolfParticles(): Promise<void> {
+  private async loadWolfParticles(): Promise<boolean> {
 
     try {
 
-      const response = await fetch(
-        '/assets/particles/wolf_particles.json'
-      );
+      const response = await fetch(this.wolfUrl);
 
       if (!response.ok) {
-        throw new Error(`Wolf loading failed: ${response.status}`);
+        throw new Error(`Wolf file returned ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: WolfParticleData = await response.json();
 
       if (
-        !data.frames ||
-        data.frames.length === 0 ||
+        !data ||
         !Number.isInteger(data.particleCount) ||
         data.particleCount <= 0 ||
-        !data.frames.every((frame: any) =>
-          Array.isArray(frame.positions) &&
-          frame.positions.length === data.particleCount * 3 &&
-          frame.positions.every(Number.isFinite)
-        )
+        !Array.isArray(data.frames) ||
+        data.frames.length === 0
       ) {
-        throw new Error('Invalid wolf particle data.');
+        throw new Error('Invalid wolf animation data.');
       }
 
-      // Get first frame for consistent centering and scaling.
-      const firstPositions = data.frames[0].positions;
+      const validFrames = data.frames.every(frame =>
+        Array.isArray(frame.positions) &&
+        frame.positions.length === data.particleCount * 3 &&
+        frame.positions.every(Number.isFinite)
+      );
 
-      const bounds = new THREE.Box3();
-      const point = new THREE.Vector3();
-
-      for (let i = 0; i < firstPositions.length; i += 3) {
-
-        point.set(
-          firstPositions[i],
-          firstPositions[i + 1],
-          firstPositions[i + 2]
-        );
-
-        bounds.expandByPoint(point);
+      if (!validFrames) {
+        throw new Error('One or more wolf frames are invalid.');
       }
 
-      const center = bounds.getCenter(
-        new THREE.Vector3()
-      );
-
-      const size = bounds.getSize(
-        new THREE.Vector3()
-      );
-
-      const maxDimension = Math.max(
-        size.x,
-        size.y,
-        size.z
-      );
-
-      if (!Number.isFinite(maxDimension) || maxDimension === 0) {
-        throw new Error('Wolf has no measurable dimensions.');
+      if (!this.originalPositions) {
+        throw new Error('Sphere particles are not loaded.');
       }
 
-      const scale = 5.5 / maxDimension;
-
-      // Apply the same scale and center to every frame.
-      this.wolfFrames = data.frames.map((frame: any) => {
-
-        const positions = new Float32Array(
-          frame.positions.length
-        );
-
-        for (let i = 0; i < frame.positions.length; i += 3) {
-
-          positions[i] =
-            (frame.positions[i] - center.x) * scale;
-
-          positions[i + 1] =
-            (frame.positions[i + 1] - center.y) * scale;
-
-          positions[i + 2] =
-            (frame.positions[i + 2] - center.z) * scale;
-        }
-
-        return positions;
-      });
-
-      // Create shared wolf geometry.
-      const geometry = new THREE.BufferGeometry();
-
-      geometry.setAttribute(
-        'position',
-        new THREE.BufferAttribute(
-          this.wolfFrames[0].slice(),
-          3
-        )
+      // Ensure Blender frames play in numerical order.
+      const sortedFrames = [...data.frames].sort(
+        (a, b) => a.frame - b.frame
       );
 
-      // Icy-blue glow texture.
-      this.wolfGlowTexture = this.createWolfGlowTexture();
-
-      // Outer icy glow.
-      const glowMaterial = new THREE.PointsMaterial({
-        color: 0x70cfff,
-        size: 0.22,
-        map: this.wolfGlowTexture,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true
-      });
-
-      this.wolfGlowParticles = new THREE.Points(
-        geometry,
-        glowMaterial
+      this.wolfFrames = sortedFrames.map(
+        frame => new Float32Array(frame.positions)
       );
 
-      // Bright white particle cores.
-      const coreMaterial = new THREE.PointsMaterial({
-        color: 0xeafaff,
-        size: 0.045,
-        map: this.wolfGlowTexture,
-        transparent: true,
-        opacity: 1,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true
-      });
+      const sphereCount = this.originalPositions.length / 3;
 
-      this.wolfParticles = new THREE.Points(
-        geometry,
-        coreMaterial
+      this.matchedWolfFrames = this.wolfFrames.map(frame =>
+        this.resamplePositions(frame, sphereCount)
       );
-
-      // Show wolf for the first test.
-      this.wolfParticles.visible = true;
-      this.wolfGlowParticles.visible = true;
-
-      this.scene.add(this.wolfGlowParticles);
-      this.scene.add(this.wolfParticles);
-
-      // Hide golden sphere during wolf test.
-      if (this.particles) {
-        this.particles.visible = false;
-      }
-
-      if (this.glowParticles) {
-        this.glowParticles.visible = false;
-      }
 
       console.log(
-        'Wolf particles loaded:',
-        data.particleCount,
-        'particles across',
-        this.wolfFrames.length,
+        'Wolf animation loaded:',
+        this.matchedWolfFrames.length,
         'frames'
       );
 
+      return true;
+
     } catch (error) {
 
-      console.error(
-        'Wolf particle loading failed:',
-        error
-      );
+      console.error('Could not load wolf particles:', error);
 
+      return false;
     }
   }
 
   // ==========================================
-  // ANIMATE PARTICLE SPHERE + MOUSE INTERACTION
+  // MATCH PARTICLE COUNTS
   // ==========================================
 
-  private animate = (): void => {
+  private resamplePositions(
+    positions: Float32Array,
+    targetCount: number
+  ): Float32Array {
 
-    this.animationId = requestAnimationFrame(
-      this.animate
-    );
+    const sourceCount = positions.length / 3;
 
-    // ==========================================
-    // SPHERE PHYSICS
-    // ==========================================
+    const result = new Float32Array(targetCount * 3);
 
-    if (
-      this.particles &&
-      this.originalPositions &&
-      this.particleVelocities
-    ) {
+    for (let i = 0; i < targetCount; i++) {
 
-      this.particles.rotation.y += 0.0015;
-      this.particles.rotation.x += 0.0003;
-
-      if (this.glowParticles) {
-        this.glowParticles.rotation.copy(
-          this.particles.rotation
-        );
-      }
-
-      this.particles.updateMatrixWorld(true);
-
-      this.localMouse.copy(this.mouseWorld);
-
-      this.particles.worldToLocal(
-        this.localMouse
+      const sourceIndex = Math.min(
+        Math.floor((i / targetCount) * sourceCount),
+        sourceCount - 1
       );
 
-      const positionAttribute = this.particles.geometry
-        .getAttribute('position') as THREE.BufferAttribute;
+      const sourceOffset = sourceIndex * 3;
+      const targetOffset = i * 3;
 
-      const positions = positionAttribute.array as Float32Array;
-
-      const original = this.originalPositions;
-      const velocities = this.particleVelocities;
-
-      for (let i = 0; i < positions.length; i += 3) {
-
-        const x = positions[i];
-        const y = positions[i + 1];
-
-        const dx = x - this.localMouse.x;
-        const dy = y - this.localMouse.y;
-
-        const distance = Math.sqrt(
-          dx * dx + dy * dy
-        );
-
-        let forceX = 0;
-        let forceY = 0;
-
-        // Mouse repulsion
-        if (
-          this.mouseActive &&
-          distance < this.interactionRadius
-        ) {
-
-          const influence =
-            1 - distance / this.interactionRadius;
-
-          const force =
-            influence * influence * this.interactionStrength;
-
-          if (distance > 0.001) {
-
-            forceX = (dx / distance) * force;
-            forceY = (dy / distance) * force;
-          }
-        }
-
-        // Spring force
-        const returnX =
-          (original[i] - x) * this.springStrength;
-
-        const returnY =
-          (original[i + 1] - y) * this.springStrength;
-
-        const returnZ =
-          (original[i + 2] - positions[i + 2]) *
-          this.springStrength;
-
-        // Velocity
-        velocities[i] =
-          (velocities[i] + forceX + returnX) *
-          this.damping;
-
-        velocities[i + 1] =
-          (velocities[i + 1] + forceY + returnY) *
-          this.damping;
-
-        velocities[i + 2] =
-          (velocities[i + 2] + returnZ) *
-          this.damping;
-
-        // Position
-        positions[i] += velocities[i];
-        positions[i + 1] += velocities[i + 1];
-        positions[i + 2] += velocities[i + 2];
-      }
-
-      positionAttribute.needsUpdate = true;
+      result[targetOffset] = positions[sourceOffset];
+      result[targetOffset + 1] = positions[sourceOffset + 1];
+      result[targetOffset + 2] = positions[sourceOffset + 2];
     }
 
-    // ==========================================
-    // WOLF RUNNING ANIMATION
-    // ==========================================
-
-    if (
-      this.wolfParticles &&
-      this.wolfFrames.length > 0 &&
-      this.wolfAnimationPlaying
-    ) {
-
-      const now = performance.now();
-
-      if (this.wolfLastFrameTime === 0) {
-        this.wolfLastFrameTime = now;
-      }
-
-      const frameInterval =
-        this.wolfFrameDuration * 1000;
-
-      if (now - this.wolfLastFrameTime >= frameInterval) {
-
-        this.wolfLastFrameTime = now;
-
-        this.wolfFrameIndex =
-          (this.wolfFrameIndex + 1) %
-          this.wolfFrames.length;
-
-        const attribute = this.wolfParticles.geometry
-          .getAttribute('position') as THREE.BufferAttribute;
-
-        const positions = attribute.array as Float32Array;
-
-        positions.set(
-          this.wolfFrames[this.wolfFrameIndex]
-        );
-
-        attribute.needsUpdate = true;
-      }
-    }
-
-    // ==========================================
-    // RENDER
-    // ==========================================
-
-    this.renderer.render(
-      this.scene,
-      this.camera
-    );
-  };
+    return result;
+  }
 
   // ==========================================
-  // GOLDEN GLOW TEXTURE
+  // CREATE ICY PARTICLES
+  // ==========================================
+
+  private createParticleSphere(): void {
+
+    if (!this.animatedPositions) return;
+
+    const geometry = new THREE.BufferGeometry();
+
+    geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(this.animatedPositions, 3)
+    );
+
+    this.glowTexture = this.createGlowTexture();
+
+    const glowMaterial = new THREE.PointsMaterial({
+      color: 0x58cfff,
+      size: 0.19,
+      map: this.glowTexture,
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true
+    });
+
+    const coreMaterial = new THREE.PointsMaterial({
+      color: 0xe6faff,
+      size: 0.065,
+      map: this.glowTexture,
+      transparent: true,
+      opacity: 1,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true
+    });
+
+    this.glowParticles = new THREE.Points(
+      geometry,
+      glowMaterial
+    );
+
+    this.coreParticles = new THREE.Points(
+      geometry,
+      coreMaterial
+    );
+
+    // Enlarge both particle layers equally.
+    // this.glowParticles.scale.setScalar(this.particleScale);
+    // this.coreParticles.scale.setScalar(this.particleScale);
+
+    // Scale the universe sphere.
+    this.glowParticles.scale.setScalar(this.universeScale);
+    this.coreParticles.scale.setScalar(this.universeScale);
+
+    this.scene.add(this.glowParticles);
+    this.scene.add(this.coreParticles);
+  }
+
+  // ==========================================
+  // ICY GLOW TEXTURE
   // ==========================================
 
   private createGlowTexture(): THREE.Texture {
@@ -625,31 +361,15 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       64, 64, 64
     );
 
-    gradient.addColorStop(
-      0,
-      'rgba(255, 255, 220, 1)'
-    );
-
-    gradient.addColorStop(
-      0.12,
-      'rgba(255, 220, 100, 0.9)'
-    );
-
-    gradient.addColorStop(
-      0.35,
-      'rgba(255, 170, 30, 0.35)'
-    );
-
-    gradient.addColorStop(
-      1,
-      'rgba(255, 140, 0, 0)'
-    );
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.12, 'rgba(225,250,255,1)');
+    gradient.addColorStop(0.3, 'rgba(115,220,255,0.95)');
+    gradient.addColorStop(0.5, 'rgba(55,180,255,0.45)');
+    gradient.addColorStop(0.75, 'rgba(30,130,255,0.12)');
+    gradient.addColorStop(1, 'rgba(30,130,255,0)');
 
     context.fillStyle = gradient;
-
-    context.fillRect(
-      0, 0, 128, 128
-    );
+    context.fillRect(0, 0, 128, 128);
 
     const texture = new THREE.CanvasTexture(canvas);
 
@@ -659,55 +379,192 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   }
 
   // ==========================================
-  // WOLF ICY GLOW TEXTURE
+  // SCROLL-BASED MORPH
   // ==========================================
 
-  private createWolfGlowTexture(): THREE.Texture {
+  private setupScrollAnimation(): void {
 
-    const canvas = document.createElement('canvas');
+    const section = this.canvasContainer.nativeElement
+      .closest('.particle-universe-section');
 
-    canvas.width = 128;
-    canvas.height = 128;
+    if (!section) {
+      console.error('Particle section not found.');
+      return;
+    }
 
-    const context = canvas.getContext('2d')!;
+    this.morphProgress = 0;
 
-    const gradient = context.createRadialGradient(
-      64, 64, 0,
-      64, 64, 64
-    );
+    const timeline = gsap.timeline({
+      scrollTrigger: {
+        trigger: section,
+        start: 'top top',
+        end: '+=400%',
+        scrub: 1,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+        invalidateOnRefresh: true
+      }
+    });
 
-    gradient.addColorStop(
-      0,
-      'rgba(255,255,255,1)'
-    );
+    timeline
+      .to({}, { duration: 1 })
+      .to(this, {
+        morphProgress: 4,
+        duration: 10,
+        ease: 'easeInOut',
+      });
 
-    gradient.addColorStop(
-      0.15,
-      'rgba(180,235,255,0.95)'
-    );
+    this.morphTween = timeline;
 
-    gradient.addColorStop(
-      0.4,
-      'rgba(70,180,255,0.4)'
-    );
-
-    gradient.addColorStop(
-      1,
-      'rgba(40,130,255,0)'
-    );
-
-    context.fillStyle = gradient;
-
-    context.fillRect(
-      0, 0, 128, 128
-    );
-
-    const texture = new THREE.CanvasTexture(canvas);
-
-    texture.colorSpace = THREE.SRGBColorSpace;
-
-    return texture;
+    requestAnimationFrame(() => {
+      ScrollTrigger.refresh();
+    });
   }
+
+  // ==========================================
+  // RUNNING WOLF FRAME ANIMATION
+  // ==========================================
+
+  private updateWolfAnimation(delta: number): void {
+
+    if (this.matchedWolfFrames.length < 2) return;
+
+    this.wolfFrameProgress +=
+      delta * this.wolfFramesPerSecond;
+
+    this.wolfFrameProgress %=
+      this.matchedWolfFrames.length;
+  }
+
+  // ==========================================
+  // GET INTERPOLATED WOLF FRAME
+  // ==========================================
+
+  private getWolfFrame(): Float32Array | undefined {
+
+    if (this.matchedWolfFrames.length === 0) {
+      return undefined;
+    }
+
+    const count = this.matchedWolfFrames.length;
+
+    const currentIndex = Math.floor(this.wolfFrameProgress);
+    const nextIndex = (currentIndex + 1) % count;
+
+    const blend = this.wolfFrameProgress - currentIndex;
+
+    const frameA = this.matchedWolfFrames[currentIndex];
+    const frameB = this.matchedWolfFrames[nextIndex];
+
+    return this.interpolateFrames(frameA, frameB, blend);
+  }
+
+  private interpolateFrames(
+    frameA: Float32Array,
+    frameB: Float32Array,
+    blend: number
+  ): Float32Array {
+
+    const result = new Float32Array(frameA.length);
+
+    for (let i = 0; i < result.length; i++) {
+
+      result[i] = THREE.MathUtils.lerp(
+        frameA[i],
+        frameB[i],
+        blend
+      );
+    }
+
+    return result;
+  }
+
+  // ==========================================
+  // MORPH SPHERE INTO RUNNING WOLF
+  // ==========================================
+
+  private updateMorph(): void {
+
+    if (
+      !this.originalPositions ||
+      !this.animatedPositions
+    ) {
+      return;
+    }
+
+    const wolfFrame = this.getWolfFrame();
+
+    if (!wolfFrame) return;
+
+    const progress = THREE.MathUtils.clamp(
+      this.morphProgress,
+      0,
+      1
+    );
+
+    for (let i = 0; i < this.animatedPositions.length; i++) {
+
+      // Enlarge the wolf coordinates without changing the sphere.
+      const enlargedWolfPosition =
+        wolfFrame[i] * this.wolfScale;
+
+      this.animatedPositions[i] = THREE.MathUtils.lerp(
+        this.originalPositions[i],
+        enlargedWolfPosition,
+        progress
+      );
+    }
+
+    const coreAttribute = this.coreParticles?.geometry
+      .getAttribute('position') as THREE.BufferAttribute;
+
+    const glowAttribute = this.glowParticles?.geometry
+      .getAttribute('position') as THREE.BufferAttribute;
+
+    if (coreAttribute) coreAttribute.needsUpdate = true;
+    if (glowAttribute) glowAttribute.needsUpdate = true;
+  }
+
+  // ==========================================
+  // MAIN ANIMATION LOOP
+  // ==========================================
+
+  private animate = (): void => {
+
+    this.animationId = requestAnimationFrame(this.animate);
+
+    const delta = Math.min(this.clock.getDelta(), 0.05);
+
+    this.updateWolfAnimation(delta);
+
+    this.updateMorph();
+
+    this.renderer.render(this.scene, this.camera);
+  };
+
+  // ==========================================
+  // RESIZE
+  // ==========================================
+
+  private onResize = (): void => {
+
+    if (!this.camera || !this.renderer) return;
+
+    const container = this.canvasContainer.nativeElement;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    if (!width || !height) return;
+
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+
+    this.renderer.setSize(width, height);
+
+    ScrollTrigger.refresh();
+  };
 
   // ==========================================
   // CLEANUP
@@ -717,60 +574,23 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     cancelAnimationFrame(this.animationId);
 
-    if (this.renderer) {
+    window.removeEventListener('resize', this.onResize);
 
-      this.renderer.domElement.removeEventListener(
-        'pointermove',
-        this.onMouseMove
-      );
-
-      this.renderer.domElement.removeEventListener(
-        'pointerleave',
-        this.onMouseLeave
-      );
-    }
-
-    // Sphere cleanup
-    if (this.particles) {
-
-      this.particles.geometry.dispose();
-
-      (
-        this.particles.material as THREE.Material
-      ).dispose();
-    }
+    this.morphTween?.scrollTrigger?.kill();
+    this.morphTween?.kill();
 
     if (this.glowParticles) {
+      this.glowParticles.geometry.dispose();
+      (this.glowParticles.material as THREE.Material).dispose();
+    }
 
-      (
-        this.glowParticles.material as THREE.Material
-      ).dispose();
+    if (this.coreParticles) {
+      (this.coreParticles.material as THREE.Material).dispose();
     }
 
     this.glowTexture?.dispose();
 
-    // Wolf cleanup
-    if (this.wolfParticles) {
-
-      this.wolfParticles.geometry.dispose();
-
-      (
-        this.wolfParticles.material as THREE.Material
-      ).dispose();
-    }
-
-    if (this.wolfGlowParticles) {
-
-      (
-        this.wolfGlowParticles.material as THREE.Material
-      ).dispose();
-    }
-
-    this.wolfGlowTexture?.dispose();
-
-    // Renderer cleanup
     this.renderer?.dispose();
-
     this.renderer?.domElement.remove();
   }
 }
