@@ -39,9 +39,15 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
 
+  // Golden universe particle layers
   private glowParticles?: THREE.Points;
   private coreParticles?: THREE.Points;
   private glowTexture?: THREE.Texture;
+
+  // Icy wolf particle layers
+  private wolfGlowParticles?: THREE.Points;
+  private wolfCoreParticles?: THREE.Points;
+  private wolfGlowTexture?: THREE.Texture;
 
   private originalPositions?: Float32Array;
   private animatedPositions?: Float32Array;
@@ -62,8 +68,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   private animationId = 0;
   private clock = new THREE.Clock();
-
-  private wolfGlowTexture?: THREE.Texture;
 
   private readonly sphereUrl =
     '/assets/particles/particles.json';
@@ -162,7 +166,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       }
 
       this.originalPositions = new Float32Array(positions);
-
       this.animatedPositions = new Float32Array(positions);
 
       this.createParticleSphere();
@@ -286,7 +289,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   }
 
   // ==========================================
-  // CREATE ICY PARTICLES
+  // CREATE GOLDEN UNIVERSE + ICY WOLF LAYERS
   // ==========================================
 
   private createParticleSphere(): void {
@@ -300,10 +303,14 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       new THREE.BufferAttribute(this.animatedPositions, 3)
     );
 
-    this.glowTexture = this.createGlowTexture();
+    // Create separate textures for the two visual styles.
+    this.glowTexture = this.createGlowTexture('gold');
+    this.wolfGlowTexture = this.createGlowTexture('ice');
 
-    const glowMaterial = new THREE.PointsMaterial({
-      color: 0x58cfff,
+    // GOLDEN UNIVERSE MATERIALS
+
+    const goldenGlowMaterial = new THREE.PointsMaterial({
+      color: 0xffbd38,
       size: 0.19,
       map: this.glowTexture,
       transparent: true,
@@ -313,8 +320,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       sizeAttenuation: true
     });
 
-    const coreMaterial = new THREE.PointsMaterial({
-      color: 0xe6faff,
+    const goldenCoreMaterial = new THREE.PointsMaterial({
+      color: 0xffffdc,
       size: 0.065,
       map: this.glowTexture,
       transparent: true,
@@ -324,28 +331,70 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       sizeAttenuation: true
     });
 
+    // ICY WOLF MATERIALS
+
+    const icyGlowMaterial = new THREE.PointsMaterial({
+      color: 0x58cfff,
+      size: 0.19,
+      map: this.wolfGlowTexture,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true
+    });
+
+    const icyCoreMaterial = new THREE.PointsMaterial({
+      color: 0xe6faff,
+      size: 0.065,
+      map: this.wolfGlowTexture,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true
+    });
+
+    // Create all four layers using the SAME geometry.
+    // This means all layers follow the exact same particle positions.
+
     this.glowParticles = new THREE.Points(
       geometry,
-      glowMaterial
+      goldenGlowMaterial
     );
 
     this.coreParticles = new THREE.Points(
       geometry,
-      coreMaterial
+      goldenCoreMaterial
+    );
+
+    this.wolfGlowParticles = new THREE.Points(
+      geometry,
+      icyGlowMaterial
+    );
+
+    this.wolfCoreParticles = new THREE.Points(
+      geometry,
+      icyCoreMaterial
     );
 
     // Scale is handled directly in updateMorph().
-    // Do not scale either Points object here.
+    // Do not scale the Points objects here.
 
     this.scene.add(this.glowParticles);
     this.scene.add(this.coreParticles);
+
+    this.scene.add(this.wolfGlowParticles);
+    this.scene.add(this.wolfCoreParticles);
   }
 
   // ==========================================
-  // ICY GLOW TEXTURE
+  // GOLD + ICE GLOW TEXTURES
   // ==========================================
 
-  private createGlowTexture(): THREE.Texture {
+  private createGlowTexture(
+    type: 'gold' | 'ice'
+  ): THREE.Texture {
 
     const canvas = document.createElement('canvas');
 
@@ -359,12 +408,24 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       64, 64, 64
     );
 
-    gradient.addColorStop(0, 'rgba(255,255,255,1)');
-    gradient.addColorStop(0.12, 'rgba(225,250,255,1)');
-    gradient.addColorStop(0.3, 'rgba(115,220,255,0.95)');
-    gradient.addColorStop(0.5, 'rgba(55,180,255,0.45)');
-    gradient.addColorStop(0.75, 'rgba(30,130,255,0.12)');
-    gradient.addColorStop(1, 'rgba(30,130,255,0)');
+    if (type === 'gold') {
+
+      gradient.addColorStop(0, 'rgba(255,255,245,1)');
+      gradient.addColorStop(0.12, 'rgba(255,240,170,1)');
+      gradient.addColorStop(0.3, 'rgba(255,195,65,0.95)');
+      gradient.addColorStop(0.5, 'rgba(255,145,20,0.5)');
+      gradient.addColorStop(0.75, 'rgba(255,105,0,0.15)');
+      gradient.addColorStop(1, 'rgba(255,85,0,0)');
+
+    } else {
+
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.12, 'rgba(225,250,255,1)');
+      gradient.addColorStop(0.3, 'rgba(115,220,255,0.95)');
+      gradient.addColorStop(0.5, 'rgba(55,180,255,0.45)');
+      gradient.addColorStop(0.75, 'rgba(30,130,255,0.12)');
+      gradient.addColorStop(1, 'rgba(30,130,255,0)');
+    }
 
     context.fillStyle = gradient;
     context.fillRect(0, 0, 128, 128);
@@ -501,7 +562,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       1
     );
 
-    // Calculate current sphere rotation.
+    // Rotate the universe around the Z axis.
     const cos = Math.cos(this.universeRotation);
     const sin = Math.sin(this.universeRotation);
 
@@ -512,7 +573,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const y = this.originalPositions[i + 1];
       const z = this.originalPositions[i + 2];
 
-      // Rotate sphere around the Z axis.
+      // Rotate sphere.
       const rotatedX = x * cos - y * sin;
       const rotatedY = x * sin + y * cos;
 
@@ -526,7 +587,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const wolfY = wolfFrame[i + 1] * this.wolfScale;
       const wolfZ = wolfFrame[i + 2] * this.wolfScale;
 
-      // Morph from sphere coordinates into wolf coordinates.
+      // Morph sphere coordinates into wolf coordinates.
       this.animatedPositions[i] = THREE.MathUtils.lerp(
         sphereX,
         wolfX,
@@ -546,14 +607,53 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       );
     }
 
-    const coreAttribute = this.coreParticles?.geometry
+    // Update the shared geometry.
+    const positionAttribute = this.glowParticles?.geometry
       .getAttribute('position') as THREE.BufferAttribute;
 
-    const glowAttribute = this.glowParticles?.geometry
-      .getAttribute('position') as THREE.BufferAttribute;
+    if (positionAttribute) {
+      positionAttribute.needsUpdate = true;
+    }
 
-    if (coreAttribute) coreAttribute.needsUpdate = true;
-    if (glowAttribute) glowAttribute.needsUpdate = true;
+    // Crossfade golden universe into icy wolf.
+    // Gold stays dominant until 55% of the morph.
+    // Ice becomes fully visible at 90%.
+
+    const wolfVisibility = THREE.MathUtils.smoothstep(
+      progress,
+      0.55,
+      0.9
+    );
+
+    const universeVisibility = 1 - wolfVisibility;
+
+    const goldenGlow = this.glowParticles
+      ?.material as THREE.PointsMaterial;
+
+    const goldenCore = this.coreParticles
+      ?.material as THREE.PointsMaterial;
+
+    const icyGlow = this.wolfGlowParticles
+      ?.material as THREE.PointsMaterial;
+
+    const icyCore = this.wolfCoreParticles
+      ?.material as THREE.PointsMaterial;
+
+    if (goldenGlow) {
+      goldenGlow.opacity = 0.65 * universeVisibility;
+    }
+
+    if (goldenCore) {
+      goldenCore.opacity = universeVisibility;
+    }
+
+    if (icyGlow) {
+      icyGlow.opacity = 0.65 * wolfVisibility;
+    }
+
+    if (icyCore) {
+      icyCore.opacity = wolfVisibility;
+    }
   }
 
   // ==========================================
@@ -615,16 +715,22 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.morphTween?.scrollTrigger?.kill();
     this.morphTween?.kill();
 
-    if (this.glowParticles) {
-      this.glowParticles.geometry.dispose();
-      (this.glowParticles.material as THREE.Material).dispose();
-    }
+    // All four Points objects share one geometry.
+    // Dispose that geometry only once.
 
-    if (this.coreParticles) {
-      (this.coreParticles.material as THREE.Material).dispose();
-    }
+    this.glowParticles?.geometry.dispose();
+
+    // Dispose all four separate materials.
+
+    (this.glowParticles?.material as THREE.Material | undefined)?.dispose();
+    (this.coreParticles?.material as THREE.Material | undefined)?.dispose();
+    (this.wolfGlowParticles?.material as THREE.Material | undefined)?.dispose();
+    (this.wolfCoreParticles?.material as THREE.Material | undefined)?.dispose();
+
+    // Dispose both textures.
 
     this.glowTexture?.dispose();
+    this.wolfGlowTexture?.dispose();
 
     this.renderer?.dispose();
     this.renderer?.domElement.remove();
