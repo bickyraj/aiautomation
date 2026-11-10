@@ -486,8 +486,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
       .to({}, { duration: 2 })
 
-      // Wolf particles flow into the car while
-      // the wireframe emerges around them.
       .to(this, {
         carProgress: 1,
         wireframeProgress: 1,
@@ -495,7 +493,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         ease: 'power1.inOut'
       })
 
-      // Keep the completed car on screen.
       .to({}, {
         duration: 0.5
       });
@@ -512,7 +509,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private updateWolfAnimation(delta: number): void {
-    if (this.carProgress > 0) return;
+    // Keep the wolf running during the car transition.
     if (this.matchedWolfFrames.length < 2) return;
 
     this.wolfFrameProgress +=
@@ -599,6 +596,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       0,
       1
     );
+
     const smoothCarProgress =
       (1 - Math.cos(Math.PI * carProgress)) / 2;
 
@@ -621,6 +619,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     const cos = Math.cos(this.universeRotation);
     const sin = Math.sin(this.universeRotation);
 
+    const smoothMorphProgress =
+      (1 - Math.cos(Math.PI * progress)) / 2;
+
     for (let i = 0; i < this.animatedPositions.length; i += 3) {
       const x = this.originalPositions[i];
       const y = this.originalPositions[i + 1];
@@ -637,25 +638,22 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const wolfY = wolfFrame[i + 1] * this.wolfScale;
       const wolfZ = wolfFrame[i + 2] * this.wolfScale;
 
-      const progress =
-        (1 - Math.cos(Math.PI * this.morphProgress)) / 2;
-
       this.animatedPositions[i] = THREE.MathUtils.lerp(
         sphereX,
         wolfX,
-        progress
+        smoothMorphProgress
       );
 
       this.animatedPositions[i + 1] = THREE.MathUtils.lerp(
         sphereY,
         wolfY,
-        progress
+        smoothMorphProgress
       );
 
       this.animatedPositions[i + 2] = THREE.MathUtils.lerp(
         sphereZ,
         wolfZ,
-        progress
+        smoothMorphProgress
       );
     }
 
@@ -665,7 +663,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     );
 
     // ======================================
-    // 2. CAPTURE WOLF POSE
+    // 2. CAPTURE INITIAL WOLF POSE
     // ======================================
 
     if (carProgress > 0 && !this.carMorphStarted) {
@@ -677,6 +675,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     // ======================================
     // 3. WOLF PARTICLES → CAR EDGES
+    //    WITH RUNNING ANIMATION CARRIED OVER
     // ======================================
 
     if (
@@ -692,6 +691,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         Math.sin(carProgress * Math.PI * 2) *
         burstEnvelope;
 
+      // Running motion gradually fades as the car forms.
+      const animationWeight = 1 - smoothCarProgress;
+
       for (
         let i = 0;
         i < this.wolfToCarPositions.length;
@@ -702,6 +704,16 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         const startX = this.wolfToCarStartPositions[i];
         const startY = this.wolfToCarStartPositions[i + 1];
         const startZ = this.wolfToCarStartPositions[i + 2];
+
+        // Current animated wolf position relative to captured pose.
+        const animationOffsetX =
+          this.animatedPositions[i] - startX;
+
+        const animationOffsetY =
+          this.animatedPositions[i + 1] - startY;
+
+        const animationOffsetZ =
+          this.animatedPositions[i + 2] - startZ;
 
         const targetX = this.carParticlePositions[i];
         const targetY = this.carParticlePositions[i + 1];
@@ -759,13 +771,21 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
           swirlWave;
 
         this.wolfToCarPositions[i] =
-          baseX + burstX + swirlX;
+          baseX +
+          animationOffsetX * animationWeight +
+          burstX +
+          swirlX;
 
         this.wolfToCarPositions[i + 1] =
-          baseY + burstY + swirlY;
+          baseY +
+          animationOffsetY * animationWeight +
+          burstY +
+          swirlY;
 
         this.wolfToCarPositions[i + 2] =
-          baseZ + burstZ;
+          baseZ +
+          animationOffsetZ * animationWeight +
+          burstZ;
       }
 
       this.particleEngine.updateParticles(
@@ -801,7 +821,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     const universeVisibility = 1 - wolfMorphVisibility;
 
-    // Wolf fades as its particles arrive at the car edges.
     const wolfToCarFade = THREE.MathUtils.smoothstep(
       carProgress,
       0.35,
@@ -813,7 +832,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       (1 - wolfToCarFade) *
       (1 - particleFadeProgress);
 
-    // The wireframe appears during the same transition.
     const networkVisibility = THREE.MathUtils.smoothstep(
       wireframeProgress,
       0.02,
@@ -867,7 +885,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     this.updateWolfAnimation(delta);
     this.updateMorph();
-    // Rotate the car continuously.
+
     this.carRenderer.update(delta);
 
     this.particleEngine.render();
