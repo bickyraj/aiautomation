@@ -51,6 +51,14 @@ export class CarRenderer {
   private readonly networkScatterDistance = 4;
   private currentProgress = 0;
 
+  update(deltaTime: number): void {
+    if (!this.carGroup) return;
+
+    const rotationSpeed = THREE.MathUtils.degToRad(30);
+
+    this.carGroup.rotation.z += rotationSpeed * deltaTime;
+  }
+
   async load(url: string): Promise<CarGeometryData> {
     const response = await fetch(url);
 

@@ -862,6 +862,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     this.updateWolfAnimation(delta);
     this.updateMorph();
+    // Rotate the car continuously.
+    this.carRenderer.update(delta);
 
     this.particleEngine.render();
   };
