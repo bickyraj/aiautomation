@@ -28,7 +28,7 @@ export class CarRenderer {
   private totalEdgeLength = 0;
   private wireframeEdgeCount = 0;
 
-  private readonly carScale = 0.15;
+  private readonly carScale = 0.17;
   private readonly carRotation = THREE.MathUtils.degToRad(35);
   private readonly carTiltY = THREE.MathUtils.degToRad(25);
 
@@ -109,6 +109,7 @@ export class CarRenderer {
     this.carGroup.scale.setScalar(this.carScale);
     this.carGroup.rotation.z = this.carRotation;
     this.carGroup.rotation.y = this.carTiltY;
+    this.carGroup.position.set(0, 0, 1);
 
     this.createSurface(data);
     this.createWireframe(data);
