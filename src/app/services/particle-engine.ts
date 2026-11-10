@@ -263,4 +263,16 @@ export class ParticleEngine {
 
     return system.particles;
   }
+
+  addObject(object: THREE.Object3D): void {
+    this.scene.add(object);
+  }
+
+  removeObject(object: THREE.Object3D): void {
+    this.scene.remove(object);
+  }
+
+  getScene(): THREE.Scene {
+    return this.scene;
+  }
 }
