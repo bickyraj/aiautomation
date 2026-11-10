@@ -23,6 +23,7 @@ export class CarRenderer {
   private wireframePositions?: Float32Array;
   private randomizedPositions?: Float32Array;
   private animatedWireframePositions?: Float32Array;
+  private dotPositions?: Float32Array;
 
   private edgeCumulativeLengths: number[] = [];
   private totalEdgeLength = 0;
@@ -32,16 +33,13 @@ export class CarRenderer {
   private readonly carRotation = THREE.MathUtils.degToRad(35);
   private readonly carTiltY = THREE.MathUtils.degToRad(25);
 
-  // Surface and polygon appearance.
   private readonly surfaceOpacity = 0.09;
   private readonly polygonOpacity = 0.45;
 
-  // Neon wireframe appearance.
   private readonly glowOpacity = 1;
   private readonly coreOpacity = 0.5;
   private readonly outerGlowOpacity = 0.22;
 
-  // Dots remain visible during the burst, then fade away.
   private readonly dotOpacity = 0.2;
   private readonly dotSize = 0.16;
 
@@ -55,7 +53,9 @@ export class CarRenderer {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to load car geometry: ${response.status}`);
+      throw new Error(
+        `Failed to load car geometry: ${response.status}`
+      );
     }
 
     const data: CarGeometryData = await response.json();
@@ -141,7 +141,6 @@ export class CarRenderer {
     this.surface = new THREE.Mesh(geometry, surfaceMaterial);
     this.carGroup?.add(this.surface);
 
-    // Draw every triangle edge over the translucent filled surface.
     const polygonGeometry = new THREE.WireframeGeometry(geometry);
 
     const polygonMaterial = new THREE.LineBasicMaterial({
@@ -198,6 +197,30 @@ export class CarRenderer {
     this.calculateEdgeLengths();
   }
 
+  // Keep one endpoint from every edge for the dot layer.
+  // This reduces the number of dots by approximately 50%.
+  private buildDotPositions(): void {
+    if (!this.wireframePositions) {
+      throw new Error('Wireframe positions have not been created.');
+    }
+
+    const source = this.wireframePositions;
+    const endpointCount = source.length / 3;
+    const sampledCount = Math.ceil(endpointCount / 2);
+
+    this.dotPositions = new Float32Array(sampledCount * 3);
+
+    let targetIndex = 0;
+
+    for (let i = 0; i < endpointCount; i += 2) {
+      const sourceIndex = i * 3;
+
+      this.dotPositions[targetIndex++] = source[sourceIndex];
+      this.dotPositions[targetIndex++] = source[sourceIndex + 1];
+      this.dotPositions[targetIndex++] = source[sourceIndex + 2];
+    }
+  }
+
   private createRandomizedPositions(): Float32Array {
     if (!this.wireframePositions) {
       throw new Error('Wireframe positions have not been created.');
@@ -216,7 +239,6 @@ export class CarRenderer {
 
     center.divideScalar(vertexCount);
 
-    // Reuse the same displacement for matching endpoints.
     const displacedVertices = new Map<string, THREE.Vector3>();
 
     for (let i = 0; i < source.length; i += 3) {
@@ -300,8 +322,9 @@ export class CarRenderer {
 
   private createWireframe(data: CarGeometryData): void {
     this.buildWireframePositions(data);
+    this.buildDotPositions();
 
-    if (!this.animatedWireframePositions) return;
+    if (!this.animatedWireframePositions || !this.dotPositions) return;
 
     const geometry = new THREE.BufferGeometry();
 
@@ -323,7 +346,6 @@ export class CarRenderer {
 
     this.wireframeGlow = new THREE.LineSegments(geometry, glowMaterial);
 
-    // A slightly enlarged layer creates a wider neon halo.
     const outerGlowMaterial = new THREE.LineBasicMaterial({
       color: this.carColor,
       transparent: true,
@@ -363,7 +385,17 @@ export class CarRenderer {
       toneMapped: false
     });
 
-    this.wireframeDots = new THREE.Points(geometry, dotMaterial);
+    // Dots now use their own reduced geometry.
+    const dotGeometry = new THREE.BufferGeometry();
+
+    dotGeometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(this.dotPositions, 3)
+    );
+
+    dotGeometry.setDrawRange(0, 0);
+
+    this.wireframeDots = new THREE.Points(dotGeometry, dotMaterial);
 
     this.wireframeGlow.frustumCulled = false;
     this.wireframeCore.frustumCulled = false;
@@ -498,13 +530,12 @@ export class CarRenderer {
       !this.wireframeGlow ||
       !this.wireframeCore ||
       !this.wireframeOuterGlow ||
-      !this.wireframeDots
+      !this.wireframeDots ||
+      !this.dotPositions
     ) {
       return;
     }
 
-    // Keep the particles scattered for the first 65%.
-    // Reconstruct the car during the remaining 35%.
     const eased = THREE.MathUtils.smoothstep(value, 0.65, 1);
 
     const burstEdgeCount = Math.ceil(this.wireframeEdgeCount * 0.001);
@@ -522,8 +553,8 @@ export class CarRenderer {
     this.wireframeGlow.geometry.setDrawRange(0, drawCount);
     this.wireframeCore.geometry.setDrawRange(0, drawCount);
     this.wireframeOuterGlow.geometry.setDrawRange(0, drawCount);
-    this.wireframeDots.geometry.setDrawRange(0, drawCount);
 
+    // Update the full wireframe positions.
     for (let i = 0; i < this.wireframePositions.length; i++) {
       this.animatedWireframePositions[i] = THREE.MathUtils.lerp(
         this.randomizedPositions[i],
@@ -538,7 +569,35 @@ export class CarRenderer {
 
     positionAttribute.needsUpdate = true;
 
-    // Dots remain visible longer, then fade as the neon lines emerge.
+    // Update only the sampled dot positions.
+    const dotPositionAttribute = this.wireframeDots.geometry.getAttribute(
+      'position'
+    ) as THREE.BufferAttribute;
+
+    const dotCount = dotPositionAttribute.count;
+
+    for (let i = 0; i < dotCount; i++) {
+      const sourceIndex = i * 6;
+      const targetIndex = i * 3;
+
+      this.dotPositions[targetIndex] =
+        this.animatedWireframePositions[sourceIndex];
+
+      this.dotPositions[targetIndex + 1] =
+        this.animatedWireframePositions[sourceIndex + 1];
+
+      this.dotPositions[targetIndex + 2] =
+        this.animatedWireframePositions[sourceIndex + 2];
+    }
+
+    dotPositionAttribute.needsUpdate = true;
+
+    // Reveal only the dots belonging to the visible edges.
+    this.wireframeDots.geometry.setDrawRange(
+      0,
+      Math.min(visibleEdgeCount, dotCount)
+    );
+
     const lineReveal = THREE.MathUtils.smoothstep(value, 0.72, 0.98);
     const dotFade = 1 - THREE.MathUtils.smoothstep(value, 0.62, 0.88);
 
@@ -572,7 +631,6 @@ export class CarRenderer {
     const dotFade =
       1 - THREE.MathUtils.smoothstep(this.currentProgress, 0.62, 0.88);
 
-    // Filled surface and triangle edges appear last.
     const surfaceReveal = THREE.MathUtils.smoothstep(
       this.currentProgress,
       0.86,
@@ -612,6 +670,13 @@ export class CarRenderer {
     }
   }
 
+  update(deltaTime: number): void {
+    if (!this.carGroup) return;
+
+    const rotationSpeed = THREE.MathUtils.degToRad(30);
+    this.carGroup.rotation.z += rotationSpeed * deltaTime;
+  }
+
   setRotationZ(degrees: number): void {
     if (this.carGroup) {
       this.carGroup.rotation.z = THREE.MathUtils.degToRad(degrees);
@@ -642,6 +707,8 @@ export class CarRenderer {
     (this.wireframeCore?.material as THREE.Material | undefined)?.dispose();
     (this.wireframeOuterGlow?.material as THREE.Material | undefined)?.dispose();
 
+    this.wireframeDots?.geometry.dispose();
+
     const dotMaterial = this.wireframeDots?.material as
       | THREE.PointsMaterial
       | undefined;
@@ -659,6 +726,7 @@ export class CarRenderer {
     this.wireframePositions = undefined;
     this.randomizedPositions = undefined;
     this.animatedWireframePositions = undefined;
+    this.dotPositions = undefined;
 
     this.edgeCumulativeLengths = [];
     this.totalEdgeLength = 0;
