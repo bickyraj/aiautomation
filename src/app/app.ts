@@ -2,15 +2,12 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Topbar } from './layout/topbar/topbar';
-import {Hero} from './pages/hero/hero';
-import {About} from './pages/about/about';
-import {Ingredients} from './pages/ingredients/ingredients';
 import {ParticleUniverse} from './pages/particle-universe/particle-universe';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, Topbar, Hero, About, Ingredients, ParticleUniverse],
+  imports: [RouterOutlet, Topbar, ParticleUniverse],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

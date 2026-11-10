@@ -64,7 +64,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private wolfGlowId?: string;
 
   private readonly universeGlowOpacity = 0.4;
-  private readonly wolfGlowOpacity = 0.5;
+  private readonly wolfGlowOpacity = 0.1;
 
   // ==========================================
   // CAR RENDERER
@@ -255,8 +255,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const universeModel = new ParticleModel({
         positions: this.animatedPositions,
         color: 0xffffff,
-        particleSize: 0.06,
-        opacity: 0.8
+        particleSize: 0.02,
+        opacity: 0.9
       });
 
       this.universeId = this.particleEngine.createParticles(
@@ -267,7 +267,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         this.particleEngine.getParticleObject(this.universeId),
         {
           color: 0xffc400,
-          size: 0.5,
+          size: 0.2,
           opacity: this.universeGlowOpacity
         }
       );
@@ -347,7 +347,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const wolfModel = new ParticleModel({
         positions: new Float32Array(this.originalPositions.length),
         color: 0x00A3FF,
-        particleSize: 0.065,
+        particleSize: 0.03,
         opacity: 1
       });
 
@@ -359,8 +359,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         this.particleEngine.getParticleObject(this.wolfId),
         {
           color: 0x00A3FF,
-          size: 0.25,
-          opacity: 0.1
+          size: 0.6,
+          opacity: 0.9
         }
       );
 
