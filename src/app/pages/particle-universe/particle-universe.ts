@@ -77,14 +77,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private carProgress = 0;
-
-  // Controls the actual wireframe edge reveal.
   private wireframeProgress = 0;
-
-  // Controls the particle fade after car construction.
   private particleFadeProgress = 0;
 
-  // Particle destinations sampled along actual car edges.
   private carParticlePositions?: Float32Array;
 
   private wolfToCarStartPositions?: Float32Array;
@@ -164,7 +159,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   async ngAfterViewInit(): Promise<void> {
-
     gsap.registerPlugin(ScrollTrigger);
 
     this.particleEngine.initialize(
@@ -191,9 +185,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private async loadCar(): Promise<boolean> {
-
     try {
-
       const data = await this.carRenderer.load(this.carUrl);
 
       this.carRenderer.create(
@@ -213,10 +205,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfToCarPositions =
         new Float32Array(this.carParticlePositions.length);
 
-      // Start with the car hidden.
       this.carRenderer.setOpacity(0);
-
-      // Start with no wireframe edges revealed.
       this.carRenderer.setWireframeProgress(0);
 
       console.log(
@@ -232,7 +221,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       return true;
 
     } catch (error) {
-
       console.error('Failed to load car:', error);
       return false;
     }
@@ -243,9 +231,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private async loadSphereParticles(): Promise<boolean> {
-
     try {
-
       const response = await fetch(this.sphereUrl);
 
       if (!response.ok) {
@@ -295,7 +281,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       return true;
 
     } catch (error) {
-
       console.error('Could not load sphere particles:', error);
       return false;
     }
@@ -306,9 +291,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private async loadWolfParticles(): Promise<boolean> {
-
     try {
-
       const response = await fetch(this.wolfUrl);
 
       if (!response.ok) {
@@ -392,7 +375,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       return true;
 
     } catch (error) {
-
       console.error('Could not load wolf particles:', error);
       return false;
     }
@@ -403,7 +385,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private prepareEnergyMotion(): void {
-
     if (!this.originalPositions) return;
 
     const particleCount = this.originalPositions.length / 3;
@@ -412,7 +393,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.energySwirl = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-
       const randomA = Math.sin(i * 127.1) * 43758.5453;
       const randomB = Math.sin(i * 269.5) * 24634.6345;
       const randomC = Math.sin(i * 183.3) * 56445.234;
@@ -443,12 +423,10 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     positions: Float32Array,
     targetCount: number
   ): Float32Array {
-
     const sourceCount = positions.length / 3;
     const result = new Float32Array(targetCount * 3);
 
     for (let i = 0; i < targetCount; i++) {
-
       const sourceIndex = Math.min(
         Math.floor((i / targetCount) * sourceCount),
         sourceCount - 1
@@ -470,7 +448,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private setupScrollAnimation(): void {
-
     const section = this.canvasContainer.nativeElement
       .closest('.particle-universe-section');
 
@@ -489,7 +466,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       scrollTrigger: {
         trigger: section,
         start: 'top top',
-        end: '+=700%',
+        end: '+=650%',
         scrub: 1,
         pin: true,
         pinSpacing: true,
@@ -509,8 +486,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
       .to({}, { duration: 2 })
 
-      // Wolf particles form the car while the
-      // wireframe is progressively constructed.
+      // Wolf particles flow into the car while
+      // the wireframe emerges around them.
       .to(this, {
         carProgress: 1,
         wireframeProgress: 1,
@@ -518,17 +495,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         ease: 'power1.inOut'
       })
 
-      // Let the completed car remain visible briefly.
+      // Keep the completed car on screen.
       .to({}, {
         duration: 0.5
-      })
-
-      // Fade out wolf particles only after the car
-      // has been completely constructed.
-      .to(this, {
-        particleFadeProgress: 1,
-        duration: 2,
-        ease: 'power2.out'
       });
 
     this.morphTween = timeline;
@@ -543,9 +512,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private updateWolfAnimation(delta: number): void {
-
     if (this.carProgress > 0) return;
-
     if (this.matchedWolfFrames.length < 2) return;
 
     this.wolfFrameProgress +=
@@ -560,7 +527,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private getWolfFrame(): Float32Array | undefined {
-
     if (
       this.matchedWolfFrames.length === 0 ||
       !this.interpolatedWolfFrame
@@ -594,9 +560,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     blend: number,
     result: Float32Array
   ): void {
-
     for (let i = 0; i < result.length; i++) {
-
       result[i] = THREE.MathUtils.lerp(
         frameA[i],
         frameB[i],
@@ -606,11 +570,10 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   }
 
   // ==========================================
-  // MORPH SPHERE → WOLF → EDGE PARTICLES
+  // MORPH SPHERE → WOLF → CAR
   // ==========================================
 
   private updateMorph(): void {
-
     if (
       !this.originalPositions ||
       !this.animatedPositions ||
@@ -623,7 +586,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     }
 
     const wolfFrame = this.getWolfFrame();
-
     if (!wolfFrame) return;
 
     const progress = THREE.MathUtils.clamp(
@@ -658,7 +620,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     const sin = Math.sin(this.universeRotation);
 
     for (let i = 0; i < this.animatedPositions.length; i += 3) {
-
       const x = this.originalPositions[i];
       const y = this.originalPositions[i + 1];
       const z = this.originalPositions[i + 2];
@@ -703,7 +664,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     // ======================================
 
     if (carProgress > 0 && !this.carMorphStarted) {
-
       this.wolfToCarStartPositions =
         this.animatedPositions.slice();
 
@@ -711,7 +671,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     }
 
     // ======================================
-    // 3. WOLF PARTICLES → ACTUAL CAR EDGES
+    // 3. WOLF PARTICLES → CAR EDGES
     // ======================================
 
     if (
@@ -719,18 +679,19 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.carMorphStarted &&
       this.wolfToCarStartPositions
     ) {
-
-      const burstEnvelope = Math.sin(Math.PI * carProgress);
+      const burstEnvelope = Math.sin(
+        Math.PI * carProgress
+      );
 
       const swirlWave =
-        Math.sin(carProgress * Math.PI * 2) * burstEnvelope;
+        Math.sin(carProgress * Math.PI * 2) *
+        burstEnvelope;
 
       for (
         let i = 0;
         i < this.wolfToCarPositions.length;
         i += 3
       ) {
-
         const particleIndex = i / 3;
 
         const startX = this.wolfToCarStartPositions[i];
@@ -808,7 +769,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       );
 
     } else {
-
       this.particleEngine.updateParticles(
         this.wolfId,
         this.animatedPositions
@@ -820,13 +780,12 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     // ======================================
 
     if (carProgress === 0) {
-
       this.carMorphStarted = false;
       this.wolfToCarStartPositions = undefined;
     }
 
     // ======================================
-    // 5. VISIBILITY
+    // 5. VISIBILITY CROSSFADE
     // ======================================
 
     const wolfMorphVisibility = THREE.MathUtils.smoothstep(
@@ -837,10 +796,24 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     const universeVisibility = 1 - wolfMorphVisibility;
 
-    // Keep particles visible while the car is constructed.
-    // Fade them only after construction is complete.
+    // Wolf fades as its particles arrive at the car edges.
+    const wolfToCarFade = THREE.MathUtils.smoothstep(
+      carProgress,
+      0.35,
+      0.9
+    );
+
     const wolfVisibility =
-      wolfMorphVisibility * (1 - particleFadeProgress);
+      wolfMorphVisibility *
+      (1 - wolfToCarFade) *
+      (1 - particleFadeProgress);
+
+    // The wireframe appears during the same transition.
+    const networkVisibility = THREE.MathUtils.smoothstep(
+      wireframeProgress,
+      0.02,
+      0.65
+    );
 
     this.particleEngine.setVisibility(
       this.universeId,
@@ -853,7 +826,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     );
 
     if (this.universeGlowId) {
-
       this.glowDecorator.setOpacity(
         this.universeGlowId,
         this.universeGlowOpacity * universeVisibility
@@ -861,17 +833,17 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     }
 
     if (this.wolfGlowId) {
-
       this.glowDecorator.setOpacity(
         this.wolfGlowId,
         this.wolfGlowOpacity * wolfVisibility
       );
     }
 
-    // Progressively construct the actual car wireframe.
-    // The car remains fully visible after construction.
-    this.carRenderer.setWireframeProgress(wireframeProgress);
-    this.carRenderer.setOpacity(wireframeProgress);
+    this.carRenderer.setWireframeProgress(
+      wireframeProgress
+    );
+
+    this.carRenderer.setOpacity(networkVisibility);
   }
 
   // ==========================================
@@ -879,13 +851,11 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private animate = (): void => {
-
     this.animationId = requestAnimationFrame(this.animate);
 
     const delta = Math.min(this.clock.getDelta(), 0.05);
 
     if (this.morphProgress < 1) {
-
       this.universeRotation +=
         this.universeRotationSpeed * delta;
     }
@@ -901,7 +871,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private onResize = (): void => {
-
     const container = this.canvasContainer.nativeElement;
 
     const width = container.clientWidth;
@@ -919,7 +888,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   ngOnDestroy(): void {
-
     cancelAnimationFrame(this.animationId);
 
     window.removeEventListener('resize', this.onResize);
