@@ -2,7 +2,7 @@
 import {
   AfterViewInit,
   Component,
-  ElementRef,
+  ElementRef, inject,
   OnDestroy,
   ViewChild
 } from '@angular/core';
@@ -15,6 +15,7 @@ import { ParticleEngine } from '../../services/particle-engine';
 import { ParticleModel } from '../../models/particle-model.model';
 import { GlowDecorator } from '../../services/glow-decorator';
 import { CarRenderer } from '../../services/car-renderer';
+import {ParticleColorGenerator} from '../../services/particle-color-generator';
 
 // ==========================================
 // WOLF DATA INTERFACES
@@ -45,6 +46,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   @ViewChild('canvasContainer')
   canvasContainer!: ElementRef<HTMLDivElement>;
 
+  private particleColorGenerator: ParticleColorGenerator = inject(ParticleColorGenerator);
+
   constructor(private particleEngine: ParticleEngine) {}
 
   // ==========================================
@@ -63,7 +66,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private universeGlowId?: string;
   private wolfGlowId?: string;
 
-  private readonly universeGlowOpacity = 0.4;
+  private readonly universeGlowOpacity = 0.5;
   private readonly wolfGlowOpacity = 0.1;
 
   // ==========================================
@@ -230,6 +233,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // LOAD SPHERE PARTICLES
   // ==========================================
 
+
   private async loadSphereParticles(): Promise<boolean> {
     try {
       const response = await fetch(this.sphereUrl);
@@ -252,11 +256,18 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.originalPositions = new Float32Array(positions);
       this.animatedPositions = new Float32Array(positions);
 
+      // Generate individual galaxy colors.
+      const colors =
+        this.particleColorGenerator.generateGalaxyColors(
+          this.originalPositions
+        );
+
       const universeModel = new ParticleModel({
         positions: this.animatedPositions,
         color: 0xffffff,
         particleSize: 0.02,
-        opacity: 0.9
+        opacity: 0.9,
+        colors
       });
 
       this.universeId = this.particleEngine.createParticles(
@@ -266,8 +277,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.universeGlowId = this.glowDecorator.decorate(
         this.particleEngine.getParticleObject(this.universeId),
         {
-          color: 0xffc400,
-          size: 0.2,
+          color: 0x7655ff,
+          size: 0.3,
           opacity: this.universeGlowOpacity
         }
       );
@@ -285,6 +296,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       return false;
     }
   }
+
 
   // ==========================================
   // LOAD WOLF ANIMATION
@@ -344,11 +356,18 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
       this.prepareEnergyMotion();
 
+      // Generate an icy blue gradient based on the wolf's shape.
+      const wolfColors =
+        this.particleColorGenerator.generateWolfColors(
+          this.matchedWolfFrames[0]
+        );
+
       const wolfModel = new ParticleModel({
         positions: new Float32Array(this.originalPositions.length),
-        color: 0x00A3FF,
-        particleSize: 0.03,
-        opacity: 1
+        color: 0x176FCB,
+        particleSize: 0.04,
+        opacity: 1,
+        colors: wolfColors
       });
 
       this.wolfId = this.particleEngine.createParticles(
@@ -358,7 +377,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfGlowId = this.glowDecorator.decorate(
         this.particleEngine.getParticleObject(this.wolfId),
         {
-          color: 0x00A3FF,
+          color: 0x80cfff,
           size: 0.6,
           opacity: 0.9
         }

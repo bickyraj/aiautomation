@@ -1,5 +1,5 @@
 
-import { Injectable } from '@angular/core';
+import {inject, Injectable} from '@angular/core';
 import * as THREE from 'three';
 import { ParticleModel } from '../models/particle-model.model';
 
@@ -18,7 +18,6 @@ export class ParticleEngine {
   private renderer!: THREE.WebGLRenderer;
 
   private particleSystems = new Map<string, ParticleSystem>();
-
   private nextId = 0;
   private initialized = false;
 
@@ -105,15 +104,25 @@ export class ParticleEngine {
       new THREE.BufferAttribute(positions, 3)
     );
 
+    const colors = model.getColors();
+
+    if (colors) {
+      geometry.setAttribute(
+        'color',
+        new THREE.BufferAttribute(colors, 3)
+      );
+    }
+
     // Create particle material.
     const material = new THREE.PointsMaterial({
-      color: config.color,
+      color: colors ? 0xffffff : config.color,
       size: config.particleSize,
       transparent: true,
       opacity: config.opacity,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      sizeAttenuation: true
+      sizeAttenuation: true,
+      vertexColors: !!colors
     });
 
     // Create particle object.

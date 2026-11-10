@@ -4,4 +4,5 @@ export interface ParticleConfig {
   color: number;
   particleSize: number;
   opacity: number;
+  colors?: Float32Array;
 }
