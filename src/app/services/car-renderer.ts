@@ -11,11 +11,21 @@ interface CarGeometryData {
 }
 
 export class CarRenderer {
+
   private carGroup?: THREE.Group;
 
   private surface?: THREE.Mesh;
   private wireframeGlow?: THREE.LineSegments;
   private wireframeCore?: THREE.LineSegments;
+
+  // Shared positions used by the rendered wireframe
+  // and by particle sampling.
+  private wireframePositions?: Float32Array;
+
+  private edgeCumulativeLengths: number[] = [];
+  private totalEdgeLength = 0;
+
+  private wireframeEdgeCount = 0;
 
   // Car transformation
   private readonly carScale = 0.15;
@@ -23,9 +33,9 @@ export class CarRenderer {
   private readonly carTiltY = THREE.MathUtils.degToRad(25);
 
   // Visual settings
-  private readonly surfaceOpacity = 0.08;
-  private readonly glowOpacity = 0.2;
-  private readonly coreOpacity = 0.3;
+  private readonly surfaceOpacity = 0.03;
+  private readonly glowOpacity = 0.3;
+  private readonly coreOpacity = 0;
 
   private readonly carColor = 0x00A3FF;
   private readonly coreColor = 0x66CCFF;
@@ -35,6 +45,7 @@ export class CarRenderer {
   // ----------------------------------------
 
   async load(url: string): Promise<CarGeometryData> {
+
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -46,15 +57,18 @@ export class CarRenderer {
     const data: CarGeometryData = await response.json();
 
     if (
+      !data ||
       data.vertices.length !== data.vertexCount * 3 ||
       data.faces.length !== data.faceCount ||
-      data.edges.length !== data.edgeCount
+      data.edges.length !== data.edgeCount ||
+      !data.vertices.every(Number.isFinite)
     ) {
       throw new Error('Invalid car geometry data.');
     }
 
-    // Validate triangle indices
+    // Validate triangle indices.
     for (const face of data.faces) {
+
       if (
         face.length !== 3 ||
         face.some(index =>
@@ -67,8 +81,9 @@ export class CarRenderer {
       }
     }
 
-    // Validate exported edge indices
+    // Validate exported edge indices.
     for (const edge of data.edges) {
+
       if (
         edge.length !== 2 ||
         edge.some(index =>
@@ -89,16 +104,17 @@ export class CarRenderer {
   // ----------------------------------------
 
   create(scene: THREE.Scene, data: CarGeometryData): void {
+
     this.dispose();
 
     this.carGroup = new THREE.Group();
 
     this.carGroup.scale.setScalar(this.carScale);
 
-    // Three-quarter horizontal rotation
+    // Three-quarter horizontal rotation.
     this.carGroup.rotation.z = this.carRotation;
 
-    // Downward perspective tilt
+    // Downward perspective tilt.
     this.carGroup.rotation.y = this.carTiltY;
 
     this.createSurface(data);
@@ -114,6 +130,7 @@ export class CarRenderer {
   // ----------------------------------------
 
   private createSurface(data: CarGeometryData): void {
+
     const geometry = new THREE.BufferGeometry();
 
     geometry.setAttribute(
@@ -139,15 +156,18 @@ export class CarRenderer {
   }
 
   // ----------------------------------------
-  // CREATE FULL TRIANGULAR WIREFRAME
+  // BUILD UNIQUE WIREFRAME EDGE POSITIONS
   // ----------------------------------------
 
-  private createWireframe(data: CarGeometryData): void {
+  private buildWireframePositions(data: CarGeometryData): void {
+
     const positions: number[] = [];
+
     const uniqueEdges = new Set<string>();
 
-    // Generate edges from every triangle
+    // Generate unique edges from every triangle.
     for (const face of data.faces) {
+
       const [a, b, c] = face;
 
       const triangleEdges = [
@@ -157,7 +177,7 @@ export class CarRenderer {
       ];
 
       for (const [start, end] of triangleEdges) {
-        // Avoid duplicate edges
+
         const key =
           `${Math.min(start, end)}-${Math.max(start, end)}`;
 
@@ -167,14 +187,14 @@ export class CarRenderer {
 
         uniqueEdges.add(key);
 
-        // Starting vertex
+        // Start vertex.
         positions.push(
           data.vertices[start * 3],
           data.vertices[start * 3 + 1],
           data.vertices[start * 3 + 2]
         );
 
-        // Ending vertex
+        // End vertex.
         positions.push(
           data.vertices[end * 3],
           data.vertices[end * 3 + 1],
@@ -183,14 +203,83 @@ export class CarRenderer {
       }
     }
 
+    this.wireframePositions = new Float32Array(positions);
+
+    this.wireframeEdgeCount = this.wireframePositions.length / 6;
+
+    this.calculateEdgeLengths();
+  }
+
+  // ----------------------------------------
+  // CALCULATE EDGE LENGTHS
+  // ----------------------------------------
+
+  private calculateEdgeLengths(): void {
+
+    if (!this.wireframePositions) return;
+
+    this.edgeCumulativeLengths = [];
+
+    this.totalEdgeLength = 0;
+
+    for (
+      let i = 0;
+      i < this.wireframePositions.length;
+      i += 6
+    ) {
+
+      const ax = this.wireframePositions[i];
+      const ay = this.wireframePositions[i + 1];
+      const az = this.wireframePositions[i + 2];
+
+      const bx = this.wireframePositions[i + 3];
+      const by = this.wireframePositions[i + 4];
+      const bz = this.wireframePositions[i + 5];
+
+      const dx = bx - ax;
+      const dy = by - ay;
+      const dz = bz - az;
+
+      const length = Math.sqrt(
+        dx * dx + dy * dy + dz * dz
+      );
+
+      this.totalEdgeLength += length;
+
+      this.edgeCumulativeLengths.push(
+        this.totalEdgeLength
+      );
+    }
+
+    if (this.totalEdgeLength <= 0) {
+      throw new Error('Car wireframe has no valid edge length.');
+    }
+  }
+
+  // ----------------------------------------
+  // CREATE PROGRESSIVE WIREFRAME
+  // ----------------------------------------
+
+  private createWireframe(data: CarGeometryData): void {
+
+    this.buildWireframePositions(data);
+
+    if (!this.wireframePositions) return;
+
     const geometry = new THREE.BufferGeometry();
 
     geometry.setAttribute(
       'position',
-      new THREE.Float32BufferAttribute(positions, 3)
+      new THREE.BufferAttribute(
+        this.wireframePositions,
+        3
+      )
     );
 
-    // OUTER BLUE GLOW
+    // Start with no visible line segments.
+    geometry.setDrawRange(0, 0);
+
+    // OUTER BLUE GLOW.
     const glowMaterial = new THREE.LineBasicMaterial({
       color: this.carColor,
       transparent: true,
@@ -204,7 +293,7 @@ export class CarRenderer {
       glowMaterial
     );
 
-    // BRIGHT POLYGON EDGES
+    // BRIGHT POLYGON EDGES.
     const coreMaterial = new THREE.LineBasicMaterial({
       color: this.coreColor,
       transparent: true,
@@ -222,121 +311,135 @@ export class CarRenderer {
   }
 
   // ----------------------------------------
-  // SAMPLE PARTICLES ACROSS CAR SURFACE
+  // SAMPLE PARTICLES ALONG ACTUAL CAR EDGES
   // ----------------------------------------
 
-  sampleSurfacePositions(
+  sampleEdgePositions(
     data: CarGeometryData,
     particleCount: number
   ): Float32Array {
-    if (!this.carGroup) {
-      throw new Error('Create the car before sampling its surface.');
-    }
 
-    if (!Number.isInteger(particleCount) || particleCount <= 0) {
-      throw new Error('Particle count must be a positive integer.');
-    }
-
-    const cumulativeAreas: number[] = [];
-    let totalArea = 0;
-
-    // Calculate each triangle's surface area
-    for (const face of data.faces) {
-      const [a, b, c] = face;
-
-      const ax = data.vertices[a * 3];
-      const ay = data.vertices[a * 3 + 1];
-      const az = data.vertices[a * 3 + 2];
-
-      const bx = data.vertices[b * 3];
-      const by = data.vertices[b * 3 + 1];
-      const bz = data.vertices[b * 3 + 2];
-
-      const cx = data.vertices[c * 3];
-      const cy = data.vertices[c * 3 + 1];
-      const cz = data.vertices[c * 3 + 2];
-
-      const ab = new THREE.Vector3(
-        bx - ax,
-        by - ay,
-        bz - az
+    if (!this.carGroup || !this.wireframePositions) {
+      throw new Error(
+        'Create the car before sampling its edges.'
       );
+    }
 
-      const ac = new THREE.Vector3(
-        cx - ax,
-        cy - ay,
-        cz - az
+    if (
+      !Number.isInteger(particleCount) ||
+      particleCount <= 0
+    ) {
+      throw new Error(
+        'Particle count must be a positive integer.'
       );
-
-      const area = ab.cross(ac).length() * 0.5;
-
-      totalArea += area;
-      cumulativeAreas.push(totalArea);
     }
 
-    if (totalArea <= 0) {
-      throw new Error('Car geometry has no valid surface area.');
+    if (
+      this.edgeCumulativeLengths.length !== this.wireframeEdgeCount ||
+      this.totalEdgeLength <= 0
+    ) {
+      throw new Error('Car edge sampling data is invalid.');
     }
 
-    // Ensure world transformation is up to date
     this.carGroup.updateMatrixWorld(true);
 
     const positions = new Float32Array(particleCount * 3);
 
     for (let i = 0; i < particleCount; i++) {
-      // Choose triangle proportionally to its area
-      const randomArea = Math.random() * totalArea;
 
+      // Pick a random distance along the entire wireframe.
+      const randomDistance =
+        Math.random() * this.totalEdgeLength;
+
+      // Find the edge containing that distance.
       let low = 0;
-      let high = cumulativeAreas.length - 1;
+      let high = this.edgeCumulativeLengths.length - 1;
 
       while (low < high) {
+
         const mid = Math.floor((low + high) / 2);
 
-        if (randomArea <= cumulativeAreas[mid]) {
+        if (randomDistance <= this.edgeCumulativeLengths[mid]) {
           high = mid;
         } else {
           low = mid + 1;
         }
       }
 
-      const [a, b, c] = data.faces[low];
+      const edgeIndex = low;
 
-      const ax = data.vertices[a * 3];
-      const ay = data.vertices[a * 3 + 1];
-      const az = data.vertices[a * 3 + 2];
+      const previousLength =
+        edgeIndex === 0
+          ? 0
+          : this.edgeCumulativeLengths[edgeIndex - 1];
 
-      const bx = data.vertices[b * 3];
-      const by = data.vertices[b * 3 + 1];
-      const bz = data.vertices[b * 3 + 2];
+      const edgeLength =
+        this.edgeCumulativeLengths[edgeIndex] -
+        previousLength;
 
-      const cx = data.vertices[c * 3];
-      const cy = data.vertices[c * 3 + 1];
-      const cz = data.vertices[c * 3 + 2];
+      const edgeProgress = edgeLength > 0
+        ? (randomDistance - previousLength) / edgeLength
+        : 0;
 
-      // Uniform random point inside the triangle
-      const r1 = Math.sqrt(Math.random());
-      const r2 = Math.random();
+      const offset = edgeIndex * 6;
 
-      const u = 1 - r1;
-      const v = r1 * (1 - r2);
-      const w = r1 * r2;
+      const ax = this.wireframePositions[offset];
+      const ay = this.wireframePositions[offset + 1];
+      const az = this.wireframePositions[offset + 2];
 
+      const bx = this.wireframePositions[offset + 3];
+      const by = this.wireframePositions[offset + 4];
+      const bz = this.wireframePositions[offset + 5];
+
+      // Interpolate along the selected edge.
       const point = new THREE.Vector3(
-        u * ax + v * bx + w * cx,
-        u * ay + v * by + w * cy,
-        u * az + v * bz + w * cz
+        THREE.MathUtils.lerp(ax, bx, edgeProgress),
+        THREE.MathUtils.lerp(ay, by, edgeProgress),
+        THREE.MathUtils.lerp(az, bz, edgeProgress)
       );
 
-      // Apply the visible car's scale and rotation
+      // Apply the actual car scale and rotation.
       this.carGroup.localToWorld(point);
 
-      positions[i * 3] = point.x;
-      positions[i * 3 + 1] = point.y;
-      positions[i * 3 + 2] = point.z;
+      const targetOffset = i * 3;
+
+      positions[targetOffset] = point.x;
+      positions[targetOffset + 1] = point.y;
+      positions[targetOffset + 2] = point.z;
     }
 
     return positions;
+  }
+
+  // ----------------------------------------
+  // PROGRESSIVELY REVEAL WIREFRAME
+  // ----------------------------------------
+
+  setWireframeProgress(progress: number): void {
+
+    const value = THREE.MathUtils.clamp(progress, 0, 1);
+
+    if (!this.wireframeGlow || !this.wireframeCore) {
+      return;
+    }
+
+    // Every edge uses two vertices.
+    // Reveal a growing number of complete segments.
+    const visibleEdgeCount = Math.floor(
+      this.wireframeEdgeCount * value
+    );
+
+    const visibleVertexCount = visibleEdgeCount * 2;
+
+    this.wireframeGlow.geometry.setDrawRange(
+      0,
+      visibleVertexCount
+    );
+
+    this.wireframeCore.geometry.setDrawRange(
+      0,
+      visibleVertexCount
+    );
   }
 
   // ----------------------------------------
@@ -344,6 +447,7 @@ export class CarRenderer {
   // ----------------------------------------
 
   setVisible(visible: boolean): void {
+
     if (this.carGroup) {
       this.carGroup.visible = visible;
     }
@@ -354,9 +458,11 @@ export class CarRenderer {
   // ----------------------------------------
 
   setOpacity(value: number): void {
+
     const opacity = THREE.MathUtils.clamp(value, 0, 1);
 
     if (this.surface) {
+
       const material =
         this.surface.material as THREE.MeshBasicMaterial;
 
@@ -364,6 +470,7 @@ export class CarRenderer {
     }
 
     if (this.wireframeGlow) {
+
       const material =
         this.wireframeGlow.material as THREE.LineBasicMaterial;
 
@@ -371,6 +478,7 @@ export class CarRenderer {
     }
 
     if (this.wireframeCore) {
+
       const material =
         this.wireframeCore.material as THREE.LineBasicMaterial;
 
@@ -383,7 +491,9 @@ export class CarRenderer {
   // ----------------------------------------
 
   setRotationZ(degrees: number): void {
+
     if (this.carGroup) {
+
       this.carGroup.rotation.z =
         THREE.MathUtils.degToRad(degrees);
 
@@ -392,7 +502,9 @@ export class CarRenderer {
   }
 
   setScale(scale: number): void {
+
     if (this.carGroup) {
+
       this.carGroup.scale.setScalar(scale);
 
       this.carGroup.updateMatrixWorld(true);
@@ -404,11 +516,12 @@ export class CarRenderer {
   // ----------------------------------------
 
   dispose(): void {
+
     if (!this.carGroup) return;
 
     this.carGroup.removeFromParent();
 
-    // Dispose surface geometry and material
+    // Dispose surface geometry and material.
     this.surface?.geometry.dispose();
 
     (
@@ -416,7 +529,7 @@ export class CarRenderer {
         THREE.Material | undefined
     )?.dispose();
 
-    // Shared wireframe geometry: dispose only once
+    // Shared wireframe geometry: dispose only once.
     this.wireframeGlow?.geometry.dispose();
 
     (
@@ -432,6 +545,12 @@ export class CarRenderer {
     this.surface = undefined;
     this.wireframeGlow = undefined;
     this.wireframeCore = undefined;
+
+    this.wireframePositions = undefined;
+    this.edgeCumulativeLengths = [];
+    this.totalEdgeLength = 0;
+    this.wireframeEdgeCount = 0;
+
     this.carGroup = undefined;
   }
 }
