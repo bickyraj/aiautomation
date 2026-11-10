@@ -33,22 +33,22 @@ export class CarRenderer {
   private readonly carTiltY = THREE.MathUtils.degToRad(25);
 
   // Surface and polygon appearance.
-  private readonly surfaceOpacity = 0.09;
-  private readonly polygonOpacity = 0.45;
+  private readonly surfaceOpacity = 0.0;
+  private readonly polygonOpacity = 0.2;
 
   // Neon wireframe appearance.
-  private readonly glowOpacity = 1;
-  private readonly coreOpacity = 0.5;
-  private readonly outerGlowOpacity = 0.22;
+  private readonly glowOpacity = 0.0;
+  private readonly coreOpacity = 0.1;
+  private readonly outerGlowOpacity = 0.2;
 
   // Dots remain visible during the burst, then fade away.
   private readonly dotOpacity = 0.2;
-  private readonly dotSize = 0.16;
+  private readonly dotSize = 0.1;
 
   private readonly carColor = 0x00A3FF;
   private readonly coreColor = 0x66CCFF;
 
-  private readonly networkScatterDistance = 4;
+  private readonly networkScatterDistance = 4.5;
   private currentProgress = 0;
 
   update(deltaTime: number): void {
