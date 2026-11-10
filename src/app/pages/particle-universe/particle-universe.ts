@@ -599,6 +599,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       0,
       1
     );
+    const smoothCarProgress =
+      (1 - Math.cos(Math.PI * carProgress)) / 2;
 
     const wireframeProgress = THREE.MathUtils.clamp(
       this.wireframeProgress,
@@ -634,6 +636,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const wolfX = wolfFrame[i] * this.wolfScale;
       const wolfY = wolfFrame[i + 1] * this.wolfScale;
       const wolfZ = wolfFrame[i + 2] * this.wolfScale;
+
+      const progress =
+        (1 - Math.cos(Math.PI * this.morphProgress)) / 2;
 
       this.animatedPositions[i] = THREE.MathUtils.lerp(
         sphereX,
@@ -705,19 +710,19 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         const baseX = THREE.MathUtils.lerp(
           startX,
           targetX,
-          carProgress
+          smoothCarProgress
         );
 
         const baseY = THREE.MathUtils.lerp(
           startY,
           targetY,
-          carProgress
+          smoothCarProgress
         );
 
         const baseZ = THREE.MathUtils.lerp(
           startZ,
           targetZ,
-          carProgress
+          smoothCarProgress
         );
 
         const directionX = this.energyDirections[i];
