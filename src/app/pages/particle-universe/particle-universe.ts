@@ -573,12 +573,11 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         scale: 1,
         opacity: 0.01,
         ease: 'none',
-
         scrollTrigger: {
           trigger: wolfSection,
           start: 'top bottom',
           end: 'top top',
-          scrub: 1.8,
+          scrub: 2,
           invalidateOnRefresh: true
         }
       }
@@ -602,7 +601,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
           trigger: carSection,
           start: 'top bottom',
           end: 'top top',
-          scrub: 1.8,
+          scrub: 2,
           invalidateOnRefresh: true
         }
       }
@@ -620,7 +619,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         trigger: experience,
         start: 'top top',
         end: 'bottom bottom',
-        scrub: 1.8,
+        scrub: 5,
         invalidateOnRefresh: true
       }
 
@@ -630,7 +629,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
       // Hold sphere
       .to({}, {
-        duration: 2
+        duration: 0.05
       })
 
       // Sphere → Wolf
