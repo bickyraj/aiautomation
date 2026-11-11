@@ -563,7 +563,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       universeSection,
       {
         yPercent: -18,
-        scale: 0.90,
+        scale: 1,
         opacity: 0.01,
 
         ease: 'none',
@@ -590,7 +590,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       wolfSection,
       {
         yPercent: -18,
-        scale: 0.90,
+        scale: 1,
         opacity: 0.01,
 
         ease: 'none',
