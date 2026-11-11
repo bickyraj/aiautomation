@@ -94,8 +94,13 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   private readonly sphereTopAxis = 2;
 
   // 1 = particles with the highest value on that axis are the top.
-  // Set to -1 if the burst starts from the bottom instead.
+  // Set to -1 if "up" and "down" are swapped.
   private readonly sphereTopSign = 1;
+
+  // Where the burst starts, as a height on the sphere:
+  // 0 = bottom, 0.5 = middle, 1 = top.
+  // The release spreads out from this height both up and down.
+  private readonly sphereBurstOrigin = 0.5;
 
   // How much of the transition is used to spread the start
   // from the top of the sphere to the bottom (0 = all at once,
@@ -106,7 +111,12 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // Set to 0 for no scatter, only the top-down cascade.
   private readonly sphereBurstDistance = 1.5;
 
-  // 0 for the particles at the top, 1 for the ones at the bottom.
+  // Particle objects that are lifted together on scroll.
+  private sphereObject?: THREE.Object3D;
+  private wolfObject?: THREE.Object3D;
+  private wolfBaseZ = 0;
+
+  // 0 for the particles at the burst origin, 1 for the farthest ones.
   private sphereTopDelay?: Float32Array;
 
   // ==========================================
@@ -179,6 +189,10 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   private readonly universeScale = 1.5;
   private readonly wolfScale = 5;
+
+  // Moves the finished wolf along the vertical (Z) axis.
+  // Negative = lower, positive = higher. 0 = original position.
+  private readonly wolfOffsetZ = -2;
 
   private morphTween?: gsap.core.Timeline;
 
@@ -390,13 +404,25 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     const range = Math.max(max - min, 0.0001);
 
+    const origin = THREE.MathUtils.clamp(
+      this.sphereBurstOrigin,
+      0,
+      1
+    );
+
+    // Distance to the farthest end of the sphere.
+    const farthest = Math.max(origin, 1 - origin, 0.0001);
+
     this.sphereTopDelay = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       const v = this.originalPositions[i * 3 + axis] * this.sphereTopSign;
 
-      // Top of the sphere = 0, bottom = 1.
-      this.sphereTopDelay[i] = 1 - (v - min) / range;
+      // Height on the sphere: 0 = bottom, 1 = top.
+      const height = (v - min) / range;
+
+      // 0 at the burst origin, 1 at the farthest end.
+      this.sphereTopDelay[i] = Math.abs(height - origin) / farthest;
     }
   }
 
@@ -642,6 +668,11 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     // =====================================
 
     const sphere = this.particleEngine.getParticleObject(this.universeId);
+    const wolfObject = this.particleEngine.getParticleObject(this.wolfId);
+
+    this.sphereObject = sphere;
+    this.wolfObject = wolfObject;
+    this.wolfBaseZ = wolfObject.position.z;
 
     const universeTransition = gsap.timeline({
       scrollTrigger: {
@@ -665,6 +696,14 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       // In this scene Z is the vertical axis.
       .to(sphere.position, {
         z: sphere.position.z + this.sphereScrollUpDistance,
+        ease: 'none'
+      }, 0)
+
+      // The wolf object moves up by exactly the same amount,
+      // so the two wolves overlap during the crossfade
+      // instead of showing up as two separate wolves.
+      .to(wolfObject.position, {
+        z: wolfObject.position.z + this.sphereScrollUpDistance,
         ease: 'none'
       }, 0);
 
@@ -854,10 +893,10 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       Math.PI * 2 *
       this.spiralRotations;
 
-    // Top-down cascade: every particle has its own
-    // local progress. Particles at the top of the sphere
-    // are released first, the bottom ones last, and all
-    // of them reach the wolf when t = 1.
+    // Cascade from the burst origin: every particle has its
+    // own local progress. Particles at the origin height are
+    // released first, the farthest ones last, and all of
+    // them reach the wolf when t = 1.
     const spread = THREE.MathUtils.clamp(
       this.sphereBurstSpread,
       0,
@@ -1005,7 +1044,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         wolfFrame[i + 1] * this.wolfScale;
 
       const wolfZ =
-        wolfFrame[i + 2] * this.wolfScale;
+        wolfFrame[i + 2] * this.wolfScale +
+        this.wolfOffsetZ;
 
       // ----------------------------------
       // GRADUAL CONVERGENCE + DROP
@@ -1135,6 +1175,12 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfToCarStartPositions
     ) {
 
+      // The wolf object is lifted on scroll, but the car edges are
+      // sampled in world space, so remove that lift from the targets.
+      const wolfLift = this.wolfObject
+        ? this.wolfObject.position.z - this.wolfBaseZ
+        : 0;
+
       const burstEnvelope = Math.sin(
         Math.PI * carProgress
       );
@@ -1179,7 +1225,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
           this.carParticlePositions[i + 1];
 
         const targetZ =
-          this.carParticlePositions[i + 2];
+          this.carParticlePositions[i + 2] - wolfLift;
 
         const baseX = THREE.MathUtils.lerp(
           startX,
