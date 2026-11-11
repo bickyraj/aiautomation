@@ -1,5 +1,7 @@
 
 .topbar {
+  position: relative;
+  z-index: 2;
   min-height: 92px;
   padding: 20px 32px;
   display: flex;

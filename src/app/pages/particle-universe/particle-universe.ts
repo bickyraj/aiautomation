@@ -467,10 +467,10 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // ==========================================
 
   private setupScrollAnimation(): void {
-    const section = this.canvasContainer.nativeElement
-      .closest('.particle-universe-section');
+    const experience = this.canvasContainer.nativeElement
+      .closest('.particle-experience');
 
-    if (!section) {
+    if (!experience) {
       console.error('Particle section not found.');
       return;
     }
@@ -483,38 +483,41 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     const timeline = gsap.timeline({
       scrollTrigger: {
-        trigger: section,
+        trigger: experience,
         start: 'top top',
-        end: '+=650%',
+        end: 'bottom bottom',
         scrub: 1,
-        pin: true,
-        pinSpacing: true,
-        anticipatePin: 1,
+        // pin: true,
+        // pinSpacing: true,
+        // anticipatePin: 1,
         invalidateOnRefresh: true
       }
     });
 
     timeline
-      .to({}, { duration: 1 })
+      // 1. Hold the sphere
+      .to({}, { duration: 2 })
 
+      // 2. Sphere → Wolf
       .to(this, {
         morphProgress: 1,
-        duration: 10,
+        duration: 3,
         ease: 'power1.inOut'
       })
 
+      // 3. Hold the wolf
       .to({}, { duration: 2 })
 
+      // 4. Wolf → Car
       .to(this, {
         carProgress: 1,
         wireframeProgress: 1,
-        duration: 9,
+        duration: 3,
         ease: 'power1.inOut'
       })
 
-      .to({}, {
-        duration: 0.5
-      });
+      // 5. Hold the car
+      .to({}, { duration: 2 });
 
     this.morphTween = timeline;
 
