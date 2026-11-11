@@ -160,7 +160,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     '/assets/particles/wolf_particles.json';
 
   private readonly carUrl =
-    '/assets/particles/car_wireframe.json';
+    '/assets/particles/car_wireframe-new.json';
 
   // ==========================================
   // INITIALIZE
