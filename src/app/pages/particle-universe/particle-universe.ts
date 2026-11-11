@@ -47,10 +47,26 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   @ViewChild('canvasContainer')
   canvasContainer!: ElementRef<HTMLDivElement>;
 
+  constructor(private particleEngine: ParticleEngine) {}
+
   private particleColorGenerator: ParticleColorGenerator =
     inject(ParticleColorGenerator);
 
-  constructor(private particleEngine: ParticleEngine) {}
+  // ==========================================
+  // SPHERE → WOLF SPIRAL FLOW SETTINGS
+  // ==========================================
+
+  private readonly spiralRotations = 0.2;
+
+  // Controls how much the outer particles
+  // rotate differently from the inner particles.
+  private readonly spiralTwist = 0.1;
+
+  // Subtle 3D movement, not an explosion.
+  private readonly spiralDepth = 0.01;
+
+  // Point where the wolf begins to take shape.
+  private readonly wolfConvergenceStart = 0.38;
 
   // ==========================================
   // PARTICLE SYSTEM IDS
@@ -125,7 +141,6 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   private morphTween?: gsap.core.Timeline;
 
-  // Keep references to section tweens for cleanup
   private sectionTweens: gsap.core.Tween[] = [];
 
   // ==========================================
@@ -523,19 +538,11 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // =====================================
-    // RESET ANIMATION PROGRESS
-    // =====================================
-
     this.morphProgress = 0;
     this.carProgress = 0;
     this.wireframeProgress = 0;
     this.particleFadeProgress = 0;
     this.carMorphStarted = false;
-
-    // =====================================
-    // RESET SECTION POSITIONS
-    // =====================================
 
     gsap.set(universeSection, {
       yPercent: 0,
@@ -556,7 +563,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     });
 
     // =====================================
-    // 1. UNIVERSE → WOLF
+    // 1. UNIVERSE → WOLF SECTION
     // =====================================
 
     const universeTransition = gsap.to(
@@ -565,16 +572,13 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         yPercent: -18,
         scale: 1,
         opacity: 0.01,
-
         ease: 'none',
 
         scrollTrigger: {
           trigger: wolfSection,
           start: 'top bottom',
           end: 'top top',
-
           scrub: 1.8,
-
           invalidateOnRefresh: true
         }
       }
@@ -583,7 +587,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.sectionTweens.push(universeTransition);
 
     // =====================================
-    // 2. WOLF → CAR
+    // 2. WOLF → CAR SECTION
     // =====================================
 
     const wolfTransition = gsap.to(
@@ -592,16 +596,13 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         yPercent: -18,
         scale: 1,
         opacity: 0.01,
-
         ease: 'none',
 
         scrollTrigger: {
           trigger: carSection,
           start: 'top bottom',
           end: 'top top',
-
           scrub: 1.8,
-
           invalidateOnRefresh: true
         }
       }
@@ -616,80 +617,48 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     const timeline = gsap.timeline({
 
       scrollTrigger: {
-
         trigger: experience,
-
         start: 'top top',
         end: 'bottom bottom',
-
-        // Smoothly catch up with scroll
         scrub: 1.8,
-
         invalidateOnRefresh: true
-
       }
 
     });
 
     timeline
 
-      // ---------------------------------
-      // UNIVERSE
-      // ---------------------------------
-
-      // Hold the original sphere
+      // Hold sphere
       .to({}, {
         duration: 2
       })
 
       // Sphere → Wolf
       .to(this, {
-
         morphProgress: 1,
-
-        duration: 5,
-
+        duration: 10,
         ease: 'none'
-
       })
 
-
-      // ---------------------------------
-      // WOLF
-      // ---------------------------------
-
-      // Hold the wolf
+      // Hold wolf
       .to({}, {
         duration: 1.5
       })
 
       // Wolf → Car
       .to(this, {
-
         carProgress: 1,
         wireframeProgress: 1,
-
         duration: 6,
-
         ease: 'none'
-
       })
 
-
-      // ---------------------------------
-      // CAR
-      // ---------------------------------
-
-      // Hold the final car
+      // Hold car
       .to({}, {
         duration: 1.5
       });
 
     this.morphTween = timeline;
-
-    // =====================================
-    // 4. REFRESH SCROLLTRIGGER
-    // =====================================
 
     requestAnimationFrame(() => {
       ScrollTrigger.refresh();
@@ -770,6 +739,182 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   }
 
   // ==========================================
+  // SPHERE → WOLF
+  // CONTINUOUS SPIRAL FLOW
+  // ==========================================
+
+  private updateSphereToWolf(
+    progress: number,
+    wolfFrame: Float32Array
+  ): void {
+
+    if (
+      !this.originalPositions ||
+      !this.animatedPositions
+    ) {
+      return;
+    }
+
+    const t = THREE.MathUtils.clamp(progress, 0, 1);
+
+    // ======================================
+    // FLOW PROGRESS
+    // ======================================
+
+    // Spiral rotation develops gradually.
+    const spiralProgress =
+      t * t * (3 - 2 * t);
+
+    const totalRotation =
+      spiralProgress *
+      Math.PI * 2 *
+      this.spiralRotations;
+
+    // Wolf formation starts later.
+    const convergence = THREE.MathUtils.smoothstep(
+      t,
+      this.wolfConvergenceStart,
+      1
+    );
+
+    // Smooth 3D wave envelope.
+    // Zero at the beginning and destination.
+    const depthEnvelope =
+      Math.sin(Math.PI * t);
+
+    const count = this.animatedPositions.length;
+
+    // ======================================
+    // PROCESS EVERY PARTICLE
+    // ======================================
+
+    for (let i = 0; i < count; i += 3) {
+
+      const x =
+        this.originalPositions[i] * this.universeScale;
+
+      const y =
+        this.originalPositions[i + 1] * this.universeScale;
+
+      const z =
+        this.originalPositions[i + 2] * this.universeScale;
+
+      // ----------------------------------
+      // PARTICLE POLAR COORDINATES
+      // ----------------------------------
+
+      const originalAngle =
+        Math.atan2(y, x);
+
+      const originalRadius =
+        Math.sqrt(x * x + y * y);
+
+      // Normalize radius for a coherent
+      // spiral twist across the sphere.
+      const normalizedRadius =
+        THREE.MathUtils.clamp(
+          originalRadius / this.universeScale,
+          0,
+          1.5
+        );
+
+      // ----------------------------------
+      // SHARED SPIRAL FLOW
+      // ----------------------------------
+
+      // Every particle follows the same
+      // rotational flow field.
+
+      // Outer particles rotate slightly
+      // differently from inner particles.
+      const radialTwist =
+        normalizedRadius *
+        totalRotation *
+        this.spiralTwist;
+
+      const particleAngle =
+        originalAngle +
+        this.universeRotation +
+        totalRotation +
+        radialTwist;
+
+      const cos = Math.cos(particleAngle);
+      const sin = Math.sin(particleAngle);
+
+      // ----------------------------------
+      // FLOWING POSITION
+      // ----------------------------------
+
+      const flowX =
+        originalRadius * cos;
+
+      const flowY =
+        originalRadius * sin;
+
+      // A subtle wave travels through the
+      // depth of the particle cloud.
+      // This avoids a flat 2D rotation.
+      const wavePhase =
+        originalAngle +
+        totalRotation * 1.5 +
+        normalizedRadius * 2.0;
+
+      const flowZ =
+        z +
+        Math.sin(wavePhase) *
+        this.spiralDepth *
+        depthEnvelope;
+
+      // ----------------------------------
+      // WOLF DESTINATION
+      // ----------------------------------
+
+      const wolfX =
+        wolfFrame[i] * this.wolfScale;
+
+      const wolfY =
+        wolfFrame[i + 1] * this.wolfScale;
+
+      const wolfZ =
+        wolfFrame[i + 2] * this.wolfScale;
+
+      // ----------------------------------
+      // GRADUAL CONVERGENCE
+      // ----------------------------------
+
+      // The sphere first flows and twists.
+      // Then the particles progressively
+      // settle into their wolf positions.
+
+      this.animatedPositions[i] =
+        THREE.MathUtils.lerp(
+          flowX,
+          wolfX,
+          convergence
+        );
+
+      this.animatedPositions[i + 1] =
+        THREE.MathUtils.lerp(
+          flowY,
+          wolfY,
+          convergence
+        );
+
+      this.animatedPositions[i + 2] =
+        THREE.MathUtils.lerp(
+          flowZ,
+          wolfZ,
+          convergence
+        );
+    }
+
+    this.particleEngine.updateParticles(
+      this.universeId,
+      this.animatedPositions
+    );
+  }
+
+  // ==========================================
   // MORPH SPHERE → WOLF → CAR
   // ==========================================
 
@@ -821,58 +966,20 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     // 1. UNIVERSE → WOLF
     // ======================================
 
-    const cos = Math.cos(this.universeRotation);
-    const sin = Math.sin(this.universeRotation);
-
     const smoothMorphProgress =
       (1 - Math.cos(Math.PI * progress)) / 2;
 
-    for (
-      let i = 0;
-      i < this.animatedPositions.length;
-      i += 3
-    ) {
+    // IMPORTANT:
+    // This is the ONLY place where the
+    // sphere-to-wolf positions are updated.
+    //
+    // Do not add the old linear interpolation
+    // loop after this call. It would overwrite
+    // the spiral positions.
 
-      const x = this.originalPositions[i];
-      const y = this.originalPositions[i + 1];
-      const z = this.originalPositions[i + 2];
-
-      const rotatedX = x * cos - y * sin;
-      const rotatedY = x * sin + y * cos;
-
-      const sphereX = rotatedX * this.universeScale;
-      const sphereY = rotatedY * this.universeScale;
-      const sphereZ = z * this.universeScale;
-
-      const wolfX = wolfFrame[i] * this.wolfScale;
-      const wolfY = wolfFrame[i + 1] * this.wolfScale;
-      const wolfZ = wolfFrame[i + 2] * this.wolfScale;
-
-      this.animatedPositions[i] =
-        THREE.MathUtils.lerp(
-          sphereX,
-          wolfX,
-          smoothMorphProgress
-        );
-
-      this.animatedPositions[i + 1] =
-        THREE.MathUtils.lerp(
-          sphereY,
-          wolfY,
-          smoothMorphProgress
-        );
-
-      this.animatedPositions[i + 2] =
-        THREE.MathUtils.lerp(
-          sphereZ,
-          wolfZ,
-          smoothMorphProgress
-        );
-    }
-
-    this.particleEngine.updateParticles(
-      this.universeId,
-      this.animatedPositions
+    this.updateSphereToWolf(
+      smoothMorphProgress,
+      wolfFrame
     );
 
     // ======================================
@@ -1178,7 +1285,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.morphTween?.scrollTrigger?.kill();
     this.morphTween?.kill();
 
-    // Kill section transition tweens and their triggers
+    // Kill section transition tweens
     this.sectionTweens.forEach(tween => {
       tween.scrollTrigger?.kill();
       tween.kill();
