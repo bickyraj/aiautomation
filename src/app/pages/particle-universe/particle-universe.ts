@@ -292,8 +292,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const universeModel = new ParticleModel({
         positions: this.animatedPositions,
         color: 0xffffff,
-        particleSize: 0.03,
-        opacity: 0.9,
+        particleSize: 0.05,
+        opacity: 1,
         colors
       });
 
@@ -408,8 +408,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         this.particleEngine.getParticleObject(this.wolfId),
         {
           color: 0x168bff,
-          size: 0.6,
-          opacity: 0.9
+          size: 0.5,
+          opacity: 1
         }
       );
 
