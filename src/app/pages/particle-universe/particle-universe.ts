@@ -571,7 +571,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       {
         yPercent: -18,
         scale: 1,
-        opacity: 0.01,
+        opacity: 0.0,
         ease: 'none',
         scrollTrigger: {
           trigger: wolfSection,
@@ -594,7 +594,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       {
         yPercent: -18,
         scale: 1,
-        opacity: 0.01,
+        opacity: 0.0,
         ease: 'none',
 
         scrollTrigger: {
