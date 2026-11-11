@@ -1,4 +1,3 @@
-
 import {
   AfterViewInit,
   Component,
@@ -67,6 +66,48 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   // Point where the wolf begins to take shape.
   private readonly wolfConvergenceStart = 0.38;
+
+  // ==========================================
+  // SPHERE → WOLF DOWNWARD DROP
+  // ==========================================
+
+  // How far the particles fall while flowing
+  // from the sphere into the wolf.
+  private readonly sphereDropDistance = 3;
+
+  // Drop happens on the Z axis only, and Z is the
+  // vertical axis in this scene: (0, 0, -1) = down.
+  // Set sphereDropDistance to 0 if you want the morphing
+  // particles to simply stay in place while the sphere
+  // object goes up.
+  private readonly sphereDropDirection =
+    new THREE.Vector3(0, 0, -1);
+
+  // How far the sphere object moves up while scrolling.
+  private readonly sphereScrollUpDistance = 2;
+
+  // ==========================================
+  // SPHERE TOP-DOWN BURST
+  // ==========================================
+
+  // Which axis is "up" in the particle data: 0 = X, 1 = Y, 2 = Z.
+  private readonly sphereTopAxis = 2;
+
+  // 1 = particles with the highest value on that axis are the top.
+  // Set to -1 if the burst starts from the bottom instead.
+  private readonly sphereTopSign = 1;
+
+  // How much of the transition is used to spread the start
+  // from the top of the sphere to the bottom (0 = all at once,
+  // 0.6 = a long top-to-bottom cascade).
+  private readonly sphereBurstSpread = 0.5;
+
+  // Outward scatter at the moment each particle is released.
+  // Set to 0 for no scatter, only the top-down cascade.
+  private readonly sphereBurstDistance = 1.5;
+
+  // 0 for the particles at the top, 1 for the ones at the bottom.
+  private sphereTopDelay?: Float32Array;
 
   // ==========================================
   // PARTICLE SYSTEM IDS
@@ -141,7 +182,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   private morphTween?: gsap.core.Timeline;
 
-  private sectionTweens: gsap.core.Tween[] = [];
+  private sectionTweens: gsap.core.Animation[] = [];
 
   // ==========================================
   // WOLF ANIMATION SETTINGS
@@ -284,6 +325,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.originalPositions = new Float32Array(positions);
       this.animatedPositions = new Float32Array(positions);
 
+      this.prepareSphereTopDelay();
+
       const colors =
         this.particleColorGenerator.generateGalaxyColors(
           this.originalPositions
@@ -322,6 +365,38 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       console.error('Could not load sphere particles:', error);
       return false;
 
+    }
+  }
+
+  // ==========================================
+  // PREPARE TOP-DOWN BURST ORDER
+  // ==========================================
+
+  private prepareSphereTopDelay(): void {
+
+    if (!this.originalPositions) return;
+
+    const count = this.originalPositions.length / 3;
+    const axis = this.sphereTopAxis;
+
+    let min = Infinity;
+    let max = -Infinity;
+
+    for (let i = 0; i < count; i++) {
+      const v = this.originalPositions[i * 3 + axis] * this.sphereTopSign;
+      min = Math.min(min, v);
+      max = Math.max(max, v);
+    }
+
+    const range = Math.max(max - min, 0.0001);
+
+    this.sphereTopDelay = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+      const v = this.originalPositions[i * 3 + axis] * this.sphereTopSign;
+
+      // Top of the sphere = 0, bottom = 1.
+      this.sphereTopDelay[i] = 1 - (v - min) / range;
     }
   }
 
@@ -566,22 +641,32 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     // 1. UNIVERSE → WOLF SECTION
     // =====================================
 
-    const universeTransition = gsap.to(
-      universeSection,
-      {
+    const sphere = this.particleEngine.getParticleObject(this.universeId);
+
+    const universeTransition = gsap.timeline({
+      scrollTrigger: {
+        trigger: wolfSection,
+        start: 'top bottom',
+        end: 'top top',
+        scrub: 2,
+        invalidateOnRefresh: true
+      }
+    });
+
+    universeTransition
+      .to(universeSection, {
         yPercent: -18,
         scale: 1,
-        opacity: 0.0,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: wolfSection,
-          start: 'top bottom',
-          end: 'top top',
-          scrub: 2,
-          invalidateOnRefresh: true
-        }
-      }
-    );
+        opacity: 0,
+        ease: 'none'
+      }, 0)
+
+      // Sphere moves UP while scrolling.
+      // In this scene Z is the vertical axis.
+      .to(sphere.position, {
+        z: sphere.position.z + this.sphereScrollUpDistance,
+        ease: 'none'
+      }, 0);
 
     this.sectionTweens.push(universeTransition);
 
@@ -739,7 +824,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
   // ==========================================
   // SPHERE → WOLF
-  // CONTINUOUS SPIRAL FLOW
+  // CONTINUOUS SPIRAL FLOW + DOWNWARD DROP
   // ==========================================
 
   private updateSphereToWolf(
@@ -769,17 +854,15 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       Math.PI * 2 *
       this.spiralRotations;
 
-    // Wolf formation starts later.
-    const convergence = THREE.MathUtils.smoothstep(
-      t,
-      this.wolfConvergenceStart,
-      1
+    // Top-down cascade: every particle has its own
+    // local progress. Particles at the top of the sphere
+    // are released first, the bottom ones last, and all
+    // of them reach the wolf when t = 1.
+    const spread = THREE.MathUtils.clamp(
+      this.sphereBurstSpread,
+      0,
+      0.95
     );
-
-    // Smooth 3D wave envelope.
-    // Zero at the beginning and destination.
-    const depthEnvelope =
-      Math.sin(Math.PI * t);
 
     const count = this.animatedPositions.length;
 
@@ -788,6 +871,53 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     // ======================================
 
     for (let i = 0; i < count; i += 3) {
+
+      const particleIndex = i / 3;
+
+      const delay =
+        this.sphereTopDelay?.[particleIndex] ?? 0;
+
+      const localT = THREE.MathUtils.clamp(
+        (t - delay * spread) / (1 - spread),
+        0,
+        1
+      );
+
+      // Wolf formation starts later for each particle.
+      const convergence = THREE.MathUtils.smoothstep(
+        localT,
+        this.wolfConvergenceStart,
+        1
+      );
+
+      // Zero when the particle is released and
+      // zero when it reaches the wolf.
+      const depthEnvelope =
+        Math.sin(Math.PI * localT);
+
+      // Downward drop on the Z axis.
+      const drop =
+        this.sphereDropDistance * depthEnvelope;
+
+      const dropX = this.sphereDropDirection.x * drop;
+      const dropY = this.sphereDropDirection.y * drop;
+      const dropZ = this.sphereDropDirection.z * drop;
+
+      // Outward scatter when the particle is released.
+      // X and Y spread out, Z always goes down.
+      let burstX = 0;
+      let burstY = 0;
+      let burstZ = 0;
+
+      if (this.energyDirections && this.sphereBurstDistance > 0) {
+
+        const burst =
+          this.sphereBurstDistance * depthEnvelope;
+
+        burstX = this.energyDirections[i] * burst;
+        burstY = this.energyDirections[i + 1] * burst;
+        burstZ = -Math.abs(this.energyDirections[i + 2]) * burst;
+      }
 
       const x =
         this.originalPositions[i] * this.universeScale;
@@ -878,33 +1008,35 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
         wolfFrame[i + 2] * this.wolfScale;
 
       // ----------------------------------
-      // GRADUAL CONVERGENCE
+      // GRADUAL CONVERGENCE + DROP
       // ----------------------------------
 
       // The sphere first flows and twists.
       // Then the particles progressively
       // settle into their wolf positions.
+      // The drop is added on top and returns
+      // to zero when the wolf is formed.
 
       this.animatedPositions[i] =
         THREE.MathUtils.lerp(
           flowX,
           wolfX,
           convergence
-        );
+        ) + dropX + burstX;
 
       this.animatedPositions[i + 1] =
         THREE.MathUtils.lerp(
           flowY,
           wolfY,
           convergence
-        );
+        ) + dropY + burstY;
 
       this.animatedPositions[i + 2] =
         THREE.MathUtils.lerp(
           flowZ,
           wolfZ,
           convergence
-        );
+        ) + dropZ + burstZ;
     }
 
     this.particleEngine.updateParticles(
