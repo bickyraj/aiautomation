@@ -265,7 +265,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const universeModel = new ParticleModel({
         positions: this.animatedPositions,
         color: 0xffffff,
-        particleSize: 0.02,
+        particleSize: 0.03,
         opacity: 0.9,
         colors
       });
@@ -546,8 +546,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       .to(this, {
         carProgress: 1,
         wireframeProgress: 1,
-        duration: 5,
-        ease: 'sine.inOut'
+        duration: 4,
+        ease: 'power1.inOut'
       })
 
       // 5. Hold the car
