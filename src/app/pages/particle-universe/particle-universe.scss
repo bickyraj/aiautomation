@@ -1,111 +1,321 @@
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background: #100d18;
-}
+
+/* ==========================================
+   PARTICLE EXPERIENCE
+========================================== */
 
 .particle-experience {
   position: relative;
   width: 100%;
-  background: #100d18;
   overflow: hidden;
+  background: #100d18;
+  color: #ffffff;
+  isolation: isolate;
 }
+
+
+/* ==========================================
+   SHARED SECTION STYLES
+========================================== */
 
 .particle-universe-section {
   position: relative;
   width: 100%;
-  height: 100vh;
-  min-height: 600px;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100svh;
 
   display: flex;
   align-items: center;
 
-  color: #ffffff;
+  padding: 100px 8%;
+
+  overflow: hidden;
+
   background: #100d18;
+  color: #ffffff;
+
+  box-sizing: border-box;
 }
 
+
+/* ==========================================
+   SECTION ATMOSPHERE
+========================================== */
+
+.section-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+
+  pointer-events: none;
+}
+
+
+/* ==========================================
+   UNIVERSE SECTION
+========================================== */
+
+.section-universe {
+  background:
+    radial-gradient(
+        ellipse at 75% 50%,
+        rgba(92, 54, 180, 0.12),
+        transparent 55%
+    ),
+    #100d18;
+}
+
+/* Existing Three.js stage */
 .particle-stage {
   position: absolute;
   inset: 0;
   z-index: 1;
+
+  width: 100%;
+  height: 100%;
+
+  pointer-events: none;
 }
 
 .particle-canvas {
   width: 100%;
   height: 100%;
-
-  canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
 }
+
+.particle-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+
+/* ==========================================
+   WOLF SECTION
+========================================== */
+
+.section-wolf {
+  background:
+    radial-gradient(
+        ellipse at 75% 50%,
+        rgba(0, 145, 220, 0.14),
+        transparent 55%
+    ),
+    radial-gradient(
+        ellipse at 15% 85%,
+        rgba(28, 82, 140, 0.10),
+        transparent 45%
+    ),
+    #100d18;
+}
+
+.section-wolf .section-atmosphere {
+  background:
+    linear-gradient(
+        115deg,
+        transparent 35%,
+        rgba(50, 180, 255, 0.035),
+        transparent 75%
+    );
+}
+
+.section-wolf .eyebrow {
+  color: #63d9ff;
+}
+
+
+/* ==========================================
+   CAR SECTION
+========================================== */
+
+.section-car {
+  background:
+    radial-gradient(
+        ellipse at 75% 50%,
+        rgba(30, 95, 180, 0.16),
+        transparent 55%
+    ),
+    radial-gradient(
+        ellipse at 20% 20%,
+        rgba(120, 145, 175, 0.07),
+        transparent 45%
+    ),
+    #100d18;
+}
+
+.section-car .section-atmosphere {
+  background:
+    linear-gradient(
+        120deg,
+        transparent 30%,
+        rgba(90, 160, 255, 0.04),
+        transparent 80%
+    );
+}
+
+.section-car .eyebrow {
+  color: #83baff;
+}
+
+
+/* ==========================================
+   CONTENT
+========================================== */
 
 .particle-content {
   position: relative;
   z-index: 2;
 
-  width: 45%;
-  padding-left: 8%;
+  width: 48%;
+  max-width: 700px;
 
   pointer-events: none;
-
-  .eyebrow {
-    color: #63d9ff;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.25em;
-    margin-bottom: 24px;
-  }
-
-  h2 {
-    font-size: clamp(3rem, 6vw, 6rem);
-    line-height: 0.95;
-    font-weight: 800;
-    margin: 0 0 28px;
-  }
-
-  .description {
-    max-width: 400px;
-    color: #c9c4d2;
-    font-size: 1.05rem;
-    line-height: 1.8;
-    margin: 0;
-  }
 }
 
-/* Tablet */
+.eyebrow {
+  color: #63d9ff;
+
+  font-size: 0.85rem;
+  font-weight: 600;
+
+  letter-spacing: 0.25em;
+  line-height: 1.5;
+
+  margin: 0 0 24px;
+}
+
+.particle-content h2 {
+  font-size: clamp(3rem, 6vw, 6rem);
+
+  line-height: 0.95;
+  font-weight: 800;
+
+  letter-spacing: -0.045em;
+
+  margin: 0 0 28px;
+}
+
+.description {
+  max-width: 420px;
+
+  color: #c9c4d2;
+
+  font-size: 1.05rem;
+  line-height: 1.8;
+
+  margin: 0;
+}
+
+
+/* ==========================================
+   SECTION INDICATOR
+========================================== */
+
+.section-indicator {
+  position: absolute;
+
+  right: 8%;
+  bottom: 55px;
+
+  z-index: 3;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  color: rgba(255, 255, 255, 0.55);
+
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+}
+
+.indicator-line {
+  width: 55px;
+  height: 1px;
+
+  background: rgba(255, 255, 255, 0.4);
+}
+
+
+/* ==========================================
+   TABLET
+========================================== */
+
 @media (max-width: 900px) {
-  .particle-content {
-    width: 60%;
-    padding-left: 6%;
 
-    h2 {
-      font-size: clamp(2.8rem, 8vw, 5rem);
-    }
+  .particle-universe-section {
+    padding: 90px 6%;
   }
+
+  .particle-content {
+    width: 65%;
+  }
+
+  .particle-content h2 {
+    font-size: clamp(2.8rem, 8vw, 5rem);
+  }
+
 }
 
-/* Mobile */
+
+/* ==========================================
+   MOBILE
+========================================== */
+
 @media (max-width: 600px) {
+
   .particle-universe-section {
-    min-height: 550px;
+    min-height: 100svh;
+
     align-items: flex-start;
+
+    padding: 15vh 7% 100px;
   }
 
   .particle-content {
     width: 100%;
-    padding: 12vh 7% 0;
-
-    h2 {
-      font-size: clamp(2.6rem, 11vw, 4rem);
-    }
-
-    .description {
-      max-width: 310px;
-      font-size: 0.95rem;
-    }
+    max-width: 100%;
   }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+
+    margin-bottom: 20px;
+  }
+
+  .particle-content h2 {
+    font-size: clamp(2.6rem, 11vw, 4rem);
+
+    line-height: 0.98;
+    margin-bottom: 24px;
+  }
+
+  .description {
+    max-width: 310px;
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .section-indicator {
+    right: 7%;
+    bottom: 35px;
+  }
+
+  .indicator-line {
+    width: 35px;
+  }
+
+}
+
+
+/* ==========================================
+   SMALL MOBILE
+========================================== */
+
+@media (max-width: 360px) {
+
+  .particle-content h2 {
+    font-size: 2.4rem;
+  }
+
 }
