@@ -380,8 +380,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
       const wolfModel = new ParticleModel({
         positions: new Float32Array(this.originalPositions.length),
-        color: 0x176FCB,
-        particleSize: 0.04,
+        color: 0x852cff,
+        particleSize: 0.05,
         opacity: 1,
         colors: wolfColors
       });
@@ -392,7 +392,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.wolfGlowId = this.glowDecorator.decorate(
         this.particleEngine.getParticleObject(this.wolfId),
         {
-          color: 0x80cfff,
+          color: 0x168bff,
           size: 0.6,
           opacity: 0.9
         }

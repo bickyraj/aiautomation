@@ -28,14 +28,14 @@ export class CarRenderer {
   private totalEdgeLength = 0;
   private wireframeEdgeCount = 0;
 
-  private readonly carScale = 0.16;
+  private readonly carScale = 0.17;
   private readonly carRotation = THREE.MathUtils.degToRad(90);
   private readonly carTiltY = THREE.MathUtils.degToRad(25);
 
   // Gradient palette: purple → blue → pink.
   private readonly purpleColor = new THREE.Color(0x852cff);
   private readonly blueColor = new THREE.Color(0x168bff);
-  private readonly pinkColor = new THREE.Color(0xff45c8);
+  private readonly pinkColor = new THREE.Color(0x168bff);
 
   // Surface appearance.
   private readonly surfaceOpacity = 0.025;
@@ -137,7 +137,7 @@ export class CarRenderer {
     this.carGroup.scale.setScalar(this.carScale);
     this.carGroup.rotation.z = this.carRotation;
     this.carGroup.rotation.y = this.carTiltY;
-    this.carGroup.position.set(0, 0, 1);
+    this.carGroup.position.set(0, -0.5, 1.8);
 
     this.createSurface(data);
     this.createWireframe(data);

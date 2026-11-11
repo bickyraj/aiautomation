@@ -16,7 +16,7 @@ export class ParticleColorGenerator {
 
     const palette = [
       new THREE.Color('#171044'), // Midnight purple
-      new THREE.Color('#392078'), // Deep violet
+      new THREE.Color('#852cff'), // Deep violet
       new THREE.Color('#245BCE'), // Electric blue
       new THREE.Color('#7655FF'), // Bright violet
       new THREE.Color('#D044C8'), // Magenta
