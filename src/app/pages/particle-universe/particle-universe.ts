@@ -111,6 +111,28 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // Set to 0 for no scatter, only the top-down cascade.
   private readonly sphereBurstDistance = 1.5;
 
+  // ==========================================
+  // WOLF LEFT → RIGHT FORMATION
+  // ==========================================
+
+  // Which axis runs left to right in the wolf data: 0 = X, 1 = Y, 2 = Z.
+  private readonly wolfSweepAxis = 0;
+
+  // 1 = lower values on that axis are the left side.
+  // Set to -1 if the wolf forms from right to left.
+  private readonly wolfSweepSign = 1;
+
+  // When the sweep starts, as a fraction of the sphere → wolf transition.
+  private readonly wolfSweepStart = 0.35;
+
+  // How much of the transition is used to spread the start from the
+  // left side to the right side. Each particle's own settle time is
+  // 1 - start - spread, so a bigger spread means a slower, clearer sweep.
+  private readonly wolfSweepSpread = 0.4;
+
+  // 0 for the left side of the wolf, 1 for the right side.
+  private wolfSweepDelay?: Float32Array;
+
   // Particle objects that are lifted together on scroll.
   private sphereObject?: THREE.Object3D;
   private wolfObject?: THREE.Object3D;
@@ -427,6 +449,47 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   }
 
   // ==========================================
+  // PREPARE LEFT → RIGHT FORMATION ORDER
+  // ==========================================
+
+  private prepareWolfSweepDelay(): void {
+
+    if (this.matchedWolfFrames.length === 0) return;
+
+    const frameCount = this.matchedWolfFrames.length;
+    const count = this.matchedWolfFrames[0].length / 3;
+    const axis = this.wolfSweepAxis;
+
+    // Average position over all frames, so the order stays
+    // stable while the wolf is running.
+    const average = new Float32Array(count);
+
+    for (const frame of this.matchedWolfFrames) {
+      for (let i = 0; i < count; i++) {
+        average[i] += frame[i * 3 + axis] * this.wolfSweepSign;
+      }
+    }
+
+    let min = Infinity;
+    let max = -Infinity;
+
+    for (let i = 0; i < count; i++) {
+      average[i] /= frameCount;
+      min = Math.min(min, average[i]);
+      max = Math.max(max, average[i]);
+    }
+
+    const range = Math.max(max - min, 0.0001);
+
+    this.wolfSweepDelay = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+      // Left side = 0, right side = 1.
+      this.wolfSweepDelay[i] = (average[i] - min) / range;
+    }
+  }
+
+  // ==========================================
   // LOAD WOLF ANIMATION
   // ==========================================
 
@@ -488,6 +551,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       );
 
       this.prepareEnergyMotion();
+      this.prepareWolfSweepDelay();
 
       const wolfColors =
         this.particleColorGenerator.generateWolfColors(
@@ -923,11 +987,31 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       );
 
       // Wolf formation starts later for each particle.
-      const convergence = THREE.MathUtils.smoothstep(
+      const releaseConvergence = THREE.MathUtils.smoothstep(
         localT,
         this.wolfConvergenceStart,
         1
       );
+
+      // Left → right sweep: particles on the left side of the
+      // wolf settle first, the right side last. Every particle
+      // is fully settled when t = 1.
+      const sweepDelay =
+        this.wolfSweepDelay?.[particleIndex] ?? 0;
+
+      const sweepWindow = Math.max(
+        1 - this.wolfSweepStart - this.wolfSweepSpread,
+        0.0001
+      );
+
+      const sweep = THREE.MathUtils.smoothstep(
+        (t - this.wolfSweepStart - sweepDelay * this.wolfSweepSpread) /
+        sweepWindow,
+        0,
+        1
+      );
+
+      const convergence = releaseConvergence * sweep;
 
       // Zero when the particle is released and
       // zero when it reaches the wolf.
