@@ -551,7 +551,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       })
 
       // 5. Hold the car
-      .to({}, { duration: 2 });
+      .to({}, { duration: 1 });
 
     this.morphTween = timeline;
 
