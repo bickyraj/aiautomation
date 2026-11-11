@@ -470,8 +470,12 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     const experience = this.canvasContainer.nativeElement
       .closest('.particle-experience');
 
-    if (!experience) {
-      console.error('Particle section not found.');
+    const universeSection = experience?.querySelector('.section-universe');
+    const wolfSection = experience?.querySelector('.section-wolf');
+    const carSection = experience?.querySelector('.section-car');
+
+    if (!experience || !universeSection || !wolfSection || !carSection) {
+      console.error('One or more sections could not be found.');
       return;
     }
 
@@ -480,6 +484,36 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.wireframeProgress = 0;
     this.particleFadeProgress = 0;
     this.carMorphStarted = false;
+
+    ScrollTrigger.create({
+      trigger: universeSection,
+      start: 'top top',
+      end: '+=100%',
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true
+    });
+
+    ScrollTrigger.create({
+      trigger: wolfSection,
+      start: 'top top',
+      end: '+=100%',
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true
+    });
+
+    ScrollTrigger.create({
+      trigger: carSection,
+      start: 'top top',
+      end: '+=100%',
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true
+    });
 
     const timeline = gsap.timeline({
       scrollTrigger: {
@@ -496,7 +530,7 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
 
     timeline
       // 1. Hold the sphere
-      .to({}, { duration: 2 })
+      .to({}, { duration: 3 })
 
       // 2. Sphere → Wolf
       .to(this, {
@@ -512,8 +546,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       .to(this, {
         carProgress: 1,
         wireframeProgress: 1,
-        duration: 3,
-        ease: 'power1.inOut'
+        duration: 5,
+        ease: 'sine.inOut'
       })
 
       // 5. Hold the car
