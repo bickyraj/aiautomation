@@ -6,9 +6,13 @@
 .particle-experience {
   position: relative;
   width: 100%;
-  overflow: hidden;
+
+  /* Important: don't use overflow:hidden here */
+  overflow: visible;
+
   background: #100d18;
   color: #ffffff;
+
   isolation: isolate;
 }
 
@@ -18,21 +22,38 @@
 ========================================== */
 
 .particle-universe-section {
-  position: relative;
+  position: sticky;
+  top: 0;
+
   width: 100%;
-  min-height: 100svh;
+  min-height: 100vh;
 
   display: flex;
   align-items: center;
 
-  padding: 100px 8%;
+  padding: 100px 6%;
 
   overflow: hidden;
 
-  background: #100d18;
   color: #ffffff;
-
   box-sizing: border-box;
+}
+
+
+/* ==========================================
+   SECTION STACKING
+========================================== */
+
+.section-universe {
+  z-index: 1;
+}
+
+.section-wolf {
+  z-index: 2;
+}
+
+.section-car {
+  z-index: 3;
 }
 
 
@@ -43,9 +64,37 @@
 .section-atmosphere {
   position: absolute;
   inset: 0;
-  z-index: 0;
 
+  z-index: 0;
   pointer-events: none;
+}
+
+
+/* ==========================================
+   THREE.JS STAGE
+========================================== */
+
+.particle-stage {
+  position: fixed;
+  inset: 0;
+
+  width: 100%;
+  height: 100vh;
+
+  z-index: 4;
+  pointer-events: none;
+}
+
+.particle-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.particle-canvas canvas {
+  display: block;
+
+  width: 100%;
+  height: 100%;
 }
 
 
@@ -60,30 +109,7 @@
         rgba(92, 54, 180, 0.12),
         transparent 55%
     ),
-    #100d18;
-}
-
-/* Existing Three.js stage */
-.particle-stage {
-  position: fixed;
-  inset: 0 0 0 0;
-
-  width: 100%;
-  height: 100vh;
-
-  z-index: 1;
-  pointer-events: none;
-}
-
-.particle-canvas {
-  width: 100%;
-  height: 100%;
-}
-
-.particle-canvas canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+    rgba(16, 13, 24, 0.78);
 }
 
 
@@ -103,7 +129,7 @@
         rgba(28, 82, 140, 0.10),
         transparent 45%
     ),
-    #100d18;
+    rgba(16, 13, 24, 0.78);
 }
 
 .section-wolf .section-atmosphere {
@@ -137,7 +163,7 @@
         rgba(120, 145, 175, 0.07),
         transparent 45%
     ),
-    #100d18;
+    rgba(16, 13, 24, 0.78);
 }
 
 .section-car .section-atmosphere {
@@ -263,6 +289,7 @@
 @media (max-width: 600px) {
 
   .particle-universe-section {
+    min-height: 100vh;
     min-height: 100svh;
 
     align-items: flex-start;

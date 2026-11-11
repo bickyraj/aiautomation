@@ -466,7 +466,9 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
   // SCROLL-BASED ANIMATION
   // ==========================================
 
+
   private setupScrollAnimation(): void {
+
     const experience = this.canvasContainer.nativeElement
       .closest('.particle-experience');
 
@@ -479,86 +481,187 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       return;
     }
 
+    // =====================================
+    // RESET ANIMATION PROGRESS
+    // =====================================
+
     this.morphProgress = 0;
     this.carProgress = 0;
     this.wireframeProgress = 0;
     this.particleFadeProgress = 0;
     this.carMorphStarted = false;
 
-    ScrollTrigger.create({
-      trigger: universeSection,
-      start: 'top top',
-      end: '+=100%',
-      pin: true,
-      pinSpacing: true,
-      anticipatePin: 1,
-      invalidateOnRefresh: true
+
+    // =====================================
+    // RESET SECTION POSITIONS
+    // =====================================
+
+    gsap.set(universeSection, {
+      yPercent: 0,
+      scale: 1
     });
 
-    ScrollTrigger.create({
-      trigger: wolfSection,
-      start: 'top top',
-      end: '+=100%',
-      pin: true,
-      pinSpacing: true,
-      anticipatePin: 1,
-      invalidateOnRefresh: true
+    gsap.set(wolfSection, {
+      yPercent: 0,
+      scale: 1
     });
 
-    ScrollTrigger.create({
-      trigger: carSection,
-      start: 'top top',
-      end: '+=100%',
-      pin: true,
-      pinSpacing: true,
-      anticipatePin: 1,
-      invalidateOnRefresh: true
+    gsap.set(carSection, {
+      yPercent: 0,
+      scale: 1
     });
 
-    const timeline = gsap.timeline({
+
+    // =====================================
+    // 1. UNIVERSE → WOLF
+    // =====================================
+
+    // Universe slowly moves upward
+    // while Wolf slides over it.
+
+    gsap.to(universeSection, {
+
+      yPercent: -18,
+      scale: 0.90,
+      opacity: 0.01,
+
+      ease: 'none',
+
       scrollTrigger: {
-        trigger: experience,
-        start: 'top top',
-        end: 'bottom bottom',
+        trigger: wolfSection,
+
+        start: 'top bottom',
+        end: 'top top',
+
         scrub: 1,
-        // pin: true,
-        // pinSpacing: true,
-        // anticipatePin: 1,
+
         invalidateOnRefresh: true
       }
+
     });
 
-    timeline
-      // 1. Hold the sphere
-      .to({}, { duration: 3 })
 
-      // 2. Sphere → Wolf
-      .to(this, {
-        morphProgress: 1,
-        duration: 3,
-        ease: 'power1.inOut'
+    // =====================================
+    // 2. WOLF → CAR
+    // =====================================
+
+    // Wolf slowly moves upward
+    // while Car slides over it.
+
+    gsap.to(wolfSection, {
+
+      yPercent: -18,
+      scale: 0.90,
+      opacity: 0.01,
+
+      ease: 'none',
+
+      scrollTrigger: {
+        trigger: carSection,
+
+        start: 'top bottom',
+        end: 'top top',
+
+        scrub: 1,
+
+        invalidateOnRefresh: true
+      }
+
+    });
+
+
+    // =====================================
+    // 3. MASTER MORPH TIMELINE
+    // =====================================
+
+    const timeline = gsap.timeline({
+
+      scrollTrigger: {
+
+        trigger: experience,
+
+        start: 'top top',
+        end: 'bottom bottom',
+
+        scrub: 1,
+
+        invalidateOnRefresh: true
+
+      }
+
+    });
+
+
+    timeline
+
+      // ---------------------------------
+      // UNIVERSE
+      // ---------------------------------
+
+      // Hold the sphere
+      .to({}, {
+        duration: 3
       })
 
-      // 3. Hold the wolf
-      .to({}, { duration: 2 })
-
-      // 4. Wolf → Car
+      // Sphere → Wolf
       .to(this, {
+
+        morphProgress: 1,
+
+        duration: 3,
+
+        ease: 'power1.inOut'
+
+      })
+
+
+      // ---------------------------------
+      // WOLF
+      // ---------------------------------
+
+      // Hold the wolf
+      .to({}, {
+        duration: 2
+      })
+
+      // Wolf → Car
+      .to(this, {
+
         carProgress: 1,
         wireframeProgress: 1,
+
         duration: 4,
+
         ease: 'power1.inOut'
+
       })
 
-      // 5. Hold the car
-      .to({}, { duration: 1 });
+
+      // ---------------------------------
+      // CAR
+      // ---------------------------------
+
+      // Hold the car
+      .to({}, {
+        duration: 1
+      });
+
 
     this.morphTween = timeline;
 
+
+    // =====================================
+    // 4. REFRESH SCROLLTRIGGER
+    // =====================================
+
     requestAnimationFrame(() => {
+
       ScrollTrigger.refresh();
+
     });
+
   }
+
 
   // ==========================================
   // RUNNING WOLF FRAME ANIMATION
