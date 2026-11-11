@@ -1,5 +1,5 @@
 
-import {inject, Injectable} from '@angular/core';
+import {Injectable} from '@angular/core';
 import * as THREE from 'three';
 import { ParticleModel } from '../models/particle-model.model';
 

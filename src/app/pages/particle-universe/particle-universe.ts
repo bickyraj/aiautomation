@@ -10,6 +10,7 @@ import {
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { ParticleEngine } from '../../services/particle-engine';
 import { ParticleModel } from '../../models/particle-model.model';
@@ -277,6 +278,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     const carLoaded = await this.loadCar();
     if (!carLoaded) return;
 
+    this.loadEarth();
+
     this.setupScrollAnimation();
     this.animate();
   }
@@ -371,8 +374,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       const universeModel = new ParticleModel({
         positions: this.animatedPositions,
         color: 0xffffff,
-        particleSize: 0.05,
-        opacity: 1,
+        particleSize: 0.02,
+        opacity: 0,
         colors
       });
 
@@ -382,8 +385,8 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
       this.universeGlowId = this.glowDecorator.decorate(
         this.particleEngine.getParticleObject(this.universeId),
         {
-          color: 0x7655ff,
-          size: 0.3,
+          color: 0xffffff,
+          size: 0,
           opacity: this.universeGlowOpacity
         }
       );
@@ -1559,5 +1562,84 @@ export class ParticleUniverse implements AfterViewInit, OnDestroy {
     this.particleEngine.dispose();
 
     this.clock.stop();
+  }
+
+  public async loadEarth(): Promise<void> {
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const data = await (await fetch('/assets/particles/earth_particles.json')).json();
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+    geometry.setAttribute('color',    new THREE.Float32BufferAttribute(data.colors, 3));
+    geometry.setAttribute('light',    new THREE.Float32BufferAttribute(data.lights, 1));
+
+    const material = new THREE.ShaderMaterial({
+      vertexColors: true,
+      uniforms: {
+        uSize:       { value: 18.0 },
+        uPixelRatio: { value: renderer.getPixelRatio() },
+        uSunDir:     { value: new THREE.Vector3(1, 0.3, 0.6).normalize() },
+      },
+      vertexShader: /* glsl */`
+    attribute float light;
+    varying vec3 vColor;
+    varying float vLight;
+    varying float vDay;
+
+    uniform float uSize;
+    uniform float uPixelRatio;
+    uniform vec3 uSunDir;
+
+    void main() {
+      vColor = color;
+      vLight = light;
+
+      vec3 worldNormal = normalize((modelMatrix * vec4(position, 0.0)).xyz);
+      vDay = dot(worldNormal, uSunDir);
+
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = uSize * uPixelRatio / -mv.z;
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+      fragmentShader: /* glsl */`
+    varying vec3 vColor;
+    varying float vLight;
+    varying float vDay;
+
+    void main() {
+      if (length(gl_PointCoord - 0.5) > 0.5) discard;
+
+      float dayMix = smoothstep(-0.1, 0.25, vDay);
+
+      vec3 day = vColor * (0.45 + 1.2 * dayMix);
+
+      vec3 night = vec3(1.0, 0.8, 0.45)
+                 * vLight * 4.0 * (1.0 - dayMix);
+
+      vec3 finalColor = day + night;
+
+      gl_FragColor = vec4(finalColor, 1.0);
+
+      #include <colorspace_fragment>
+    }
+  `,
+    });
+
+    const earth = new THREE.Points(geometry, material);
+    earth.rotation.x = THREE.MathUtils.degToRad(40);
+    earth.rotation.y = THREE.MathUtils.degToRad(30);
+    earth.rotation.z = THREE.MathUtils.degToRad(40);
+    const earthScale = 4;
+    earth.scale.set(earthScale, earthScale, earthScale);
+
+    const rotateEarth = () => {
+      earth.rotation.x += 0.002;
+      requestAnimationFrame(rotateEarth);
+    };
+    rotateEarth();
+    this.particleEngine.addObject(earth);
   }
 }

@@ -14,13 +14,22 @@ export class ParticleColorGenerator {
     const particleCount = positions.length / 3;
     const colors = new Float32Array(positions.length);
 
+    // const palette = [
+    //   new THREE.Color('#171044'), // Midnight purple
+    //   new THREE.Color('#852cff'), // Deep violet
+    //   new THREE.Color('#245BCE'), // Electric blue
+    //   new THREE.Color('#7655FF'), // Bright violet
+    //   new THREE.Color('#D044C8'), // Magenta
+    //   new THREE.Color('#FF79C8')  // Pink highlights
+    // ];
+
     const palette = [
-      new THREE.Color('#171044'), // Midnight purple
-      new THREE.Color('#852cff'), // Deep violet
-      new THREE.Color('#245BCE'), // Electric blue
-      new THREE.Color('#7655FF'), // Bright violet
-      new THREE.Color('#D044C8'), // Magenta
-      new THREE.Color('#FF79C8')  // Pink highlights
+      new THREE.Color('#ffffff'), // Midnight purple
+      new THREE.Color('#ffffff'), // Deep violet
+      new THREE.Color('#ffffff'), // Electric blue
+      new THREE.Color('#ffffff'), // Bright violet
+      new THREE.Color('#ffffff'), // Magenta
+      new THREE.Color('#ffffff')  // Pink highlights
     ];
 
     for (let i = 0; i < particleCount; i++) {

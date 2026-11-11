@@ -905,22 +905,6 @@ export class CarRenderer {
     this.applyMaterialOpacity();
   }
 
-  setRotationZ(degrees: number): void {
-    if (this.carGroup) {
-      this.carGroup.rotation.z =
-        THREE.MathUtils.degToRad(degrees);
-
-      this.carGroup.updateMatrixWorld(true);
-    }
-  }
-
-  setScale(scale: number): void {
-    if (this.carGroup) {
-      this.carGroup.scale.setScalar(scale);
-      this.carGroup.updateMatrixWorld(true);
-    }
-  }
-
   // --------------------------------------------------
   // CLEANUP
   // --------------------------------------------------
